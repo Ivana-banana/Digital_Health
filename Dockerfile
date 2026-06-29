@@ -1,5 +1,9 @@
 FROM python:3.11-slim
 
+# UTF-8 вывод (отчёт на русском) и небуферизованные логи — контракт ИИ-судьи.
+ENV PYTHONIOENCODING=UTF-8 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 COPY requirements.txt .

@@ -1,0 +1,25 @@
+{
+  "case_id": "cochrane_case_01",
+  "status": "skeleton",
+  "note": "P0: каркас. Заполнить из выбранного опубликованного Cochrane-обзора (plan §10, §15).",
+  "topic": "анти-PD-1 при метастатической меланоме, общая выживаемость",
+  "source_review": {
+    "title": null,
+    "doi": null,
+    "year": null
+  },
+  "pico": {
+    "population": "метастатическая меланома",
+    "intervention": "анти-PD-1",
+    "comparison": "химиотерапия",
+    "outcome": "общая выживаемость (OS)"
+  },
+  "ground_truth": {
+    "included_pmids": [],
+    "effect_type": "HR",
+    "pooled_point": null,
+    "pooled_ci_low": null,
+    "pooled_ci_high": null,
+    "i_squared": null
+  }
+}
