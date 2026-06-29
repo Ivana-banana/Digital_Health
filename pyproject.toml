@@ -1,0 +1,16 @@
+# Конфигурация инструментов качества (без [project]/[build-system] —
+# рантайм-зависимости живут в requirements.txt, dev/CI — в requirements-dev.txt).
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["data", "assets"]
+
+[tool.ruff.lint]
+# E/F — ошибки и стиль pyflakes; I — сортировка импортов; UP — модернизация; B — баги.
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]          # чтобы `import src.app.main` работал из корня
+addopts = "-q"

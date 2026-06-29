@@ -1,0 +1,27 @@
+# Sourcecraft CI — проверка каждого PR в main: lint + формат + тесты + запуск.
+# Логика проверок живёт в Makefile (единый источник правды); CI лишь вызывает цели.
+# Без секретов и без docker-in-docker: «работает ли код» проверяем прямым запуском
+# точки входа (python -m src.app.main), а не через docker compose.
+
+on:
+  pull_request:
+    - workflows: [pr-checks]
+      filter:
+        target_branches: [main]
+  push:
+    - workflows: [pr-checks]
+      filter:
+        branches: [main]
+
+workflows:
+  pr-checks:
+    tasks:
+      - name: quality
+        cubes:
+          - name: lint-test-run
+            image: python:3.11-slim
+            script:
+              - apt-get update && apt-get install -y --no-install-recommends make
+              - make install
+              - make ci
+              - make run
