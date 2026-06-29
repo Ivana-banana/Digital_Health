@@ -10,7 +10,23 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+# Синонимы мер эффекта от LLM → канонические коды (устойчивость извлечения, §0.2).
+_EFFECT_SYNONYMS = {
+    "hr": "HR",
+    "hazard ratio": "HR",
+    "or": "OR",
+    "odds ratio": "OR",
+    "rr": "RR",
+    "risk ratio": "RR",
+    "relative risk": "RR",
+    "md": "MD",
+    "mean difference": "MD",
+    "smd": "SMD",
+    "standardized mean difference": "SMD",
+    "standardised mean difference": "SMD",
+}
 
 # --- Перечисления ---------------------------------------------------------
 
@@ -149,7 +165,7 @@ class Extraction(BaseModel):
     `variance_source` фиксирует, откуда она взялась.
     """
 
-    source_id: str
+    source_id: str = ""  # проставляется узлом извлечения; LLM его не знает
     design: StudyDesign = StudyDesign.UNKNOWN
     effect_type: EffectType | None = None
     point: float | None = None
@@ -166,6 +182,14 @@ class Extraction(BaseModel):
     extraction_confidence: float = 0.0
     evidence_span: str = ""  # дословная цитата-обоснование
     text_source: TextSource = "abstract"
+
+    @field_validator("effect_type", mode="before")
+    @classmethod
+    def _normalize_effect_type(cls, v: object) -> object:
+        """Привести формулировку меры от LLM к коду (HR/OR/RR/MD/SMD)."""
+        if v is None:
+            return None
+        return _EFFECT_SYNONYMS.get(str(v).strip().lower().replace("_", " "), v)
 
 
 class Appraisal(BaseModel):

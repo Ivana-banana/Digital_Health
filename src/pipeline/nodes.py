@@ -1,22 +1,23 @@
 """Узлы пайплайна (plan §3).
 
 Каждый узел возвращает частичный апдейт state (не мутирует его); списки
-склеиваются reducer'ами. P1 реализован: retrieve (SearchPort+дедуп+QueryTranslation),
-scientometrics (trust+квартиль), scoping (артефакт этапа-1), screen (eligibility→PRISMA).
-Извлечение эффектов, appraisal, мета-анализ и гардрейлы — заглушки до P2–P3.
+склеиваются reducer'ами. P1–P2 реализованы: retrieve (SearchPort+дедуп+QueryTranslation),
+scientometrics (trust+квартиль), scoping, screen (eligibility→PRISMA), extract (LLM+
+конверсии дисперсии), appraise (инструмент по дизайну), meta (fixed-effect пул+GRADE).
+Synthesize/fact_check — базовые; полноценные гардрейлы и провенанс — P3.
 """
 
 from __future__ import annotations
 
+from src.domain.appraisal import appraise_baseline
 from src.domain.eligibility import EligibilityCriteria, PrismaTally, screen_source
+from src.domain.grade import grade_level
 from src.domain.identity import identity_key
 from src.domain.schemas import (
     PICO,
-    Appraisal,
     Claim,
     Event,
     Extraction,
-    Infeasible,
     MetaResult,
     PrismaCounts,
     Query,
@@ -29,6 +30,17 @@ from src.domain.scoring import trust_score
 from src.pipeline.deps import Deps
 from src.pipeline.state import ResearchState
 from src.ports import Ok
+from src.stats.effect_conversions import derive_variance
+from src.stats.meta import fixed_effect_pool, poolable
+
+# Промпт извлечения: честная семантика «не сообщено» вместо догадки (plan §0.2, §9).
+EXTRACT_SYS = (
+    "Ты извлекаешь численный эффект из абстракта для заданного исхода. "
+    "Верни СТРОГО JSON по схеме Extraction. effect_type — один из кодов: HR, OR, RR, MD, SMD "
+    "(или null). Заполни point и, если есть, ci_low/ci_high или se; для 2×2 — events1/n_arm1/"
+    "events2/n_arm2. Если эффект или его ДИ/SE не сообщены — effect_type=null и "
+    "variance_source='unavailable'. Никогда не выдумывай числа. В evidence_span — дословная цитата."
+)
 
 
 async def sanitize(state: ResearchState, deps: Deps) -> ResearchState:
@@ -144,48 +156,60 @@ async def screen(state: ResearchState, deps: Deps) -> ResearchState:
 
 
 async def extract(state: ResearchState, deps: Deps) -> ResearchState:
-    """Узел 7: извлечение эффектов. Заглушка — честный `unavailable` (не выдумка)."""
+    """Узел 7: извлечение эффектов LLM'ом (честный `unavailable`+span) → конверсии дисперсии."""
+    pico = state.get("pico") or PICO()
     included = {d.source_id for d in state.get("screening", []) if d.include}
-    extractions = [
-        Extraction(
-            source_id=identity_key(s),
-            design=s.design,
-            outcome=(state.get("pico") or PICO()).outcome or "",
-            variance_source="unavailable",
+    candidates = [s for s in state.get("candidates", []) if identity_key(s) in included]
+    # приоритизация top-N по trust (реранкер B — апгрейд за флагом, §6.4)
+    candidates = sorted(candidates, key=lambda s: s.trust_score or 0, reverse=True)
+    candidates = candidates[: deps.config.max_deep_studies]
+
+    extractions: list[Extraction] = []
+    for s in candidates:
+        prompt = f"Исход: {pico.outcome}\nАбстракт: {s.abstract or ''}"
+        res = await deps.llm.complete(
+            [{"role": "system", "content": EXTRACT_SYS}, {"role": "user", "content": prompt}],
+            schema=Extraction,
         )
-        for s in state.get("candidates", [])
-        if identity_key(s) in included
-    ]
-    deps.logger.event("extract", n=len(extractions))
+        ex = res.value if isinstance(res, Ok) else Extraction(source_id=identity_key(s))
+        ex = ex.model_copy(
+            update={
+                "source_id": identity_key(s),
+                "design": s.design,
+                "outcome": ex.outcome or pico.outcome or "",
+                "text_source": "abstract",
+            }
+        )
+        extractions.append(derive_variance(ex))  # дозаполнить SE / variance_source
+
+    n_pool = sum(1 for e in extractions if e.variance_source != "unavailable")
+    deps.logger.event("extract", n=len(extractions), poolable=n_pool)
     return {"extractions": extractions, "audit": [Event(node="extract")]}
 
 
 async def appraise(state: ResearchState, deps: Deps) -> ResearchState:
-    """Узел 8: критическая оценка качества (заглушка по доменам)."""
-    appraisals = [
-        Appraisal(source_id=e.source_id, tool="rob2", overall="some_concerns")
-        for e in state.get("extractions", [])
-    ]
+    """Узел 8: критическая оценка качества — инструмент по дизайну + домены (plan §8)."""
+    appraisals = [appraise_baseline(e.source_id, e.design) for e in state.get("extractions", [])]
     deps.logger.event("appraise", n=len(appraisals))
     return {"appraisals": appraisals, "audit": [Event(node="appraise")]}
 
 
 async def meta(state: ResearchState, deps: Deps) -> ResearchState:
-    """Узел 9: мета-gate. Заглушка: <2 совместимых эффектов → структурное Infeasible."""
-    poolable = [e for e in state.get("extractions", []) if e.variance_source != "unavailable"]
-    if len(poolable) >= 2:
-        result: MetaResult | Infeasible = MetaResult(
-            effect_type="HR",
-            outcome=poolable[0].outcome,
-            k_studies=len(poolable),
-            pooled_point=1.0,
-            pooled_ci_low=0.8,
-            pooled_ci_high=1.25,
-        )
-    else:
-        result = Infeasible(
-            reason="Недостаточно исследований с извлекаемой дисперсией эффекта.",
-            missing=["≥2 совместимых эффекта с ДИ/SE"],
+    """Узел 9: пул (fixed-effect IV) или структурное Infeasible; GRADE по доменам."""
+    extractions = state.get("extractions", [])
+    result = fixed_effect_pool(extractions)
+    if isinstance(result, MetaResult):
+        ps = poolable(extractions)
+        result = result.model_copy(
+            update={
+                "grade": grade_level(
+                    [e.design for e in ps],
+                    i_squared=result.i_squared,
+                    ci_low=result.pooled_ci_low,
+                    ci_high=result.pooled_ci_high,
+                    abstract_only=all(e.text_source == "abstract" for e in ps),
+                )
+            }
         )
     deps.logger.event("meta", feasible=isinstance(result, MetaResult))
     return {"meta": result, "audit": [Event(node="meta")]}
@@ -199,12 +223,28 @@ async def synthesize(state: ResearchState, deps: Deps) -> ResearchState:
         model_role="ru",
     )
     summary = res.content if hasattr(res, "content") else ""
-    citations = [s.pmid or s.doi or s.title for s in state.get("candidates", [])]
-    facts = [Claim(text=f"Найдено источников: {len(citations)}", type="fact", verified=False)]
+
+    meta_res = state.get("meta")
+    confidence = meta_res.grade if isinstance(meta_res, MetaResult) else "very_low"
+    direction = None
+    if isinstance(meta_res, MetaResult):
+        point = meta_res.pooled_point
+        direction = (
+            "favors_intervention" if point < 1 else "favors_control" if point > 1 else "no_effect"
+        )
+
+    # цитируем только включённые исследования (provenance, §9)
+    included = {d.source_id for d in state.get("screening", []) if d.include}
+    citations = [
+        s.pmid or s.doi or s.title
+        for s in state.get("candidates", [])
+        if identity_key(s) in included
+    ]
+    facts = [Claim(text=f"Включено исследований: {len(citations)}", type="fact", verified=False)]
     report = Report(
         summary=summary,
-        direction=None,
-        confidence="low",
+        direction=direction,
+        confidence=confidence,
         facts=facts,
         citations=citations,
     )

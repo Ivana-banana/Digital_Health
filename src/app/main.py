@@ -13,7 +13,7 @@ from pathlib import Path
 from src.adapters.llm.stub import StubLLM
 from src.adapters.scientometrics.scimago import ScimagoTable
 from src.adapters.search.frozen import FrozenSearch
-from src.domain.schemas import PICO, Report
+from src.domain.schemas import PICO, Extraction, MetaResult, Report
 from src.pipeline.deps import Deps
 from src.pipeline.graph import build_graph
 from src.pipeline.state import ResearchState
@@ -33,10 +33,21 @@ DEMO_PICO = PICO(
 )
 
 
+# Canned-извлечения в порядке кандидатов корпуса (HR из абстрактов NEJM/Lancet).
+# Замороженный вход извлечения == источник истины для frozen-eval (plan §10).
+DEMO_EXTRACTIONS = [
+    Extraction(source_id="", effect_type="HR", point=0.58, ci_low=0.44, ci_high=0.77),
+    Extraction(source_id="", effect_type="HR", point=0.63, ci_low=0.50, ci_high=0.80),
+]
+
+
 def build_demo_deps() -> Deps:
     """Deps для офлайн-демо: StubLLM + замороженный поиск + офлайн-квартили Scimago."""
     return Deps(
-        llm=StubLLM(canned={"PICO": DEMO_PICO}),
+        llm=StubLLM(
+            canned={"PICO": DEMO_PICO},
+            canned_seq={"Extraction": [e.model_copy() for e in DEMO_EXTRACTIONS]},
+        ),
         search=FrozenSearch.from_json(ROOT / "eval" / "frozen" / "corpus.json"),
         scimago=ScimagoTable.load(ROOT / "data" / "scimago_quartiles.csv"),
     )
@@ -61,6 +72,8 @@ def main() -> None:
     queries = final.get("queries") or []
     scoping = final.get("scoping")
     prisma = final.get("prisma")
+    extractions = final.get("extractions") or []
+    meta = final.get("meta")
 
     print(f"Гипотеза: {DEMO_HYPOTHESIS}")
     if queries and queries[0].translation:
@@ -72,8 +85,18 @@ def main() -> None:
             f"PRISMA: включено {prisma.included}, исключено {prisma.excluded} "
             f"{prisma.excluded_by_reason}"
         )
-    print(f"Источников в ответе: {len(report.citations)}")
-    print(f"Уровень доказательности: {report.confidence}")
+    if extractions:
+        print("Извлечённые эффекты:")
+        for e in extractions:
+            ci = f"({e.ci_low}–{e.ci_high})" if e.ci_low else ""
+            print(f"  - {e.source_id}: {e.effect_type} {e.point} {ci} [{e.variance_source}]")
+    if isinstance(meta, MetaResult):
+        print(
+            f"Мета-анализ ({meta.model}, k={meta.k_studies}): {meta.effect_type} "
+            f"{meta.pooled_point:.2f} (95% CI {meta.pooled_ci_low:.2f}–{meta.pooled_ci_high:.2f}), "
+            f"I²={meta.i_squared}%"
+        )
+    print(f"Направление: {report.direction} | Доказательность (GRADE): {report.confidence}")
     print(report.disclaimer)
 
 
