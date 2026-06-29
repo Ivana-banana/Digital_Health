@@ -33,13 +33,21 @@ from src.ports import Ok
 from src.stats.effect_conversions import derive_variance
 from src.stats.meta import fixed_effect_pool, poolable
 
+# Внутренняя коммуникация — EN (модели/поиск точнее на английском); отчёт — RU (plan §6.1).
+INTAKE_SYS = (
+    "Structure the clinician's hypothesis into PICO for a literature search. "
+    "Return STRICT JSON with keys: population, intervention, comparison, outcome. "
+    "Write values in ENGLISH using concise medical terminology. Use null for a missing facet."
+)
+
 # Промпт извлечения: честная семантика «не сообщено» вместо догадки (plan §0.2, §9).
 EXTRACT_SYS = (
-    "Ты извлекаешь численный эффект из абстракта для заданного исхода. "
-    "Верни СТРОГО JSON по схеме Extraction. effect_type — один из кодов: HR, OR, RR, MD, SMD "
-    "(или null). Заполни point и, если есть, ci_low/ci_high или se; для 2×2 — events1/n_arm1/"
-    "events2/n_arm2. Если эффект или его ДИ/SE не сообщены — effect_type=null и "
-    "variance_source='unavailable'. Никогда не выдумывай числа. В evidence_span — дословная цитата."
+    "You extract a numeric effect estimate from an abstract for the given outcome. "
+    "Return STRICT JSON for the Extraction schema. effect_type is one of: HR, OR, RR, MD, SMD "
+    "(or null). Fill point and, if reported, ci_low/ci_high or se; for 2x2 use "
+    "events1/n_arm1/events2/n_arm2. If the effect or its CI/SE is not reported, set "
+    "effect_type=null and variance_source='unavailable'. Never invent numbers. "
+    "Put the verbatim supporting quote in evidence_span."
 )
 
 
@@ -50,9 +58,12 @@ async def sanitize(state: ResearchState, deps: Deps) -> ResearchState:
 
 
 async def intake_pico(state: ResearchState, deps: Deps) -> ResearchState:
-    """Узел 1: структурирование гипотезы в PICO через LLM (структурный исход)."""
+    """Узел 1: структурирование гипотезы в PICO через LLM (вход RU → PICO на EN, plan §6.1)."""
     res = await deps.llm.complete(
-        [{"role": "user", "content": state["raw_hypothesis"]}],
+        [
+            {"role": "system", "content": INTAKE_SYS},
+            {"role": "user", "content": state["raw_hypothesis"]},
+        ],
         schema=PICO,
     )
     pico = res.value if isinstance(res, Ok) else PICO()
@@ -217,10 +228,11 @@ async def meta(state: ResearchState, deps: Deps) -> ResearchState:
 
 async def synthesize(state: ResearchState, deps: Deps) -> ResearchState:
     """Узел 10: отчёт. LLM даёт прозу (текстовый исход), сборка — детерминированная."""
+    prompt = "Сформулируй краткий вывод по доказательствам на русском языке."
     res = await deps.llm.complete(
-        [{"role": "user", "content": "Summarize the evidence."}],
+        [{"role": "user", "content": prompt}],
         schema=None,
-        model_role="ru",
+        model_role="ru",  # финальный отчёт — RU (plan §6.1)
     )
     summary = res.content if hasattr(res, "content") else ""
 

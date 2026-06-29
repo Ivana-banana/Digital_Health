@@ -25,11 +25,12 @@ DEMO_HYPOTHESIS = (
     "У пациентов с метастатической меланомой анти-PD-1 терапия "
     "улучшает общую выживаемость по сравнению с химиотерапией."
 )
+# PICO — на EN (язык поиска/извлечения, plan §6.1); вход врача и отчёт — RU.
 DEMO_PICO = PICO(
-    population="метастатическая меланома",
-    intervention="анти-PD-1",
-    comparison="химиотерапия",
-    outcome="общая выживаемость",
+    population="metastatic melanoma",
+    intervention="anti-PD-1",
+    comparison="chemotherapy",
+    outcome="overall survival",
 )
 
 
