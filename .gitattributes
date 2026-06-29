@@ -1,0 +1,2 @@
+# В репозитории храним LF (важно: Makefile и shell-скрипты должны быть LF для Linux CI).
+* text=auto eol=lf

@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Виртуальные окружения
+.venv/
+venv/
+env/
+
+# Секреты и окружение (шаблон .env.example остаётся в репозитории)
+.env
+.env.*
+!.env.example
+
+# Данные: большие артефакты не коммитим (см. data/README.md); .gitkeep сохраняем
+data/raw/*
+data/processed/*
+!data/**/.gitkeep
+
+# Модели / чекпойнты
+*.ckpt
+*.safetensors
+*.onnx
+
+# ОС / IDE
+.DS_Store
+.idea/
+.vscode/
