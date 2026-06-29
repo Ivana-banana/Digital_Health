@@ -1,0 +1,8 @@
+{
+  "esearchresult": {
+    "count": "2",
+    "retmax": "2",
+    "idlist": ["40000001", "40000002"],
+    "querytranslation": "(\"nivolumab\"[MeSH Terms] OR nivolumab[tiab]) AND (\"melanoma\"[MeSH Terms])"
+  }
+}

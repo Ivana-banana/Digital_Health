@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Generic, Literal, Protocol, TypeVar
 
 from pydantic import BaseModel
@@ -58,16 +58,30 @@ class LLMPort(Protocol):
     ) -> Ok[T] | Text | SchemaError: ...
 
 
+@dataclass
+class SearchResult:
+    """Результат поиска: источники + QueryTranslation (прозрачность поиска, крит. 2)."""
+
+    sources: list[Source]
+    translation: str | None = None
+
+
 class SearchPort(Protocol):
     """Поиск публикаций в источнике (PubMed/EuropePMC/OpenAlex), plan §6."""
 
-    async def search(self, query: str, *, limit: int = 100) -> list[Source]: ...
+    async def search(self, query: str, *, limit: int = 100) -> SearchResult: ...
 
 
 class ScientometricsPort(Protocol):
-    """Наукометрия: цитируемость, квартиль журнала, флаг ретракции (plan §6.3)."""
+    """Наукометрия: цитируемость, venue (OpenAlex), plan §6.1."""
 
     async def enrich(self, sources: list[Source]) -> list[Source]: ...
+
+
+class QuartilePort(Protocol):
+    """Квартиль журнала по названию (Scimago SJR, офлайн), plan §6.1."""
+
+    def quartile(self, journal: str | None) -> str | None: ...
 
 
 class ClassifierPort(Protocol):
@@ -80,18 +94,3 @@ class RerankerPort(Protocol):
     """Реранкер-приоритизатор кандидатов (модель B), plan §6.4."""
 
     async def rerank(self, query: str, sources: list[Source], *, top_n: int) -> list[Source]: ...
-
-
-@dataclass
-class RateLimiter:
-    """Ограничитель частоты per-host (token-bucket). В P0 — заглушка-контракт."""
-
-    rps: float = 10.0
-
-
-@dataclass
-class Limiters:
-    """Ограничители конкурентности из `Deps` (plan §3): семафор LLM + лимитеры хостов."""
-
-    llm_max_concurrency: int = 6
-    per_host: dict[str, RateLimiter] = field(default_factory=dict)

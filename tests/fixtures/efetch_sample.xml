@@ -1,0 +1,50 @@
+<?xml version="1.0" ?>
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation>
+      <PMID>40000001</PMID>
+      <Article>
+        <Journal><Title>New England Journal of Medicine</Title>
+          <JournalIssue><PubDate><Year>2024</Year></PubDate></JournalIssue>
+        </Journal>
+        <ArticleTitle>Nivolumab versus chemotherapy in advanced melanoma.</ArticleTitle>
+        <Abstract>
+          <AbstractText Label="BACKGROUND">Anti-PD-1 therapy may improve survival.</AbstractText>
+          <AbstractText Label="RESULTS">Overall survival HR 0.58 (95% CI 0.44-0.77).</AbstractText>
+        </Abstract>
+        <PublicationTypeList>
+          <PublicationType>Randomized Controlled Trial</PublicationType>
+          <PublicationType>Journal Article</PublicationType>
+        </PublicationTypeList>
+      </Article>
+    </MedlineCitation>
+    <PubmedData>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">40000001</ArticleId>
+        <ArticleId IdType="doi">10.1056/nejmoa2024001</ArticleId>
+        <ArticleId IdType="pmc">PMC9000001</ArticleId>
+      </ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+  <PubmedArticle>
+    <MedlineCitation>
+      <PMID>40000002</PMID>
+      <Article>
+        <Journal><Title>Journal of Retracted Science</Title>
+          <JournalIssue><PubDate><Year>2019</Year></PubDate></JournalIssue>
+        </Journal>
+        <ArticleTitle>A retracted observational study.</ArticleTitle>
+        <Abstract><AbstractText>Observational data only.</AbstractText></Abstract>
+        <PublicationTypeList>
+          <PublicationType>Observational Study</PublicationType>
+          <PublicationType>Retracted Publication</PublicationType>
+        </PublicationTypeList>
+      </Article>
+    </MedlineCitation>
+    <PubmedData>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">40000002</ArticleId>
+      </ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+</PubmedArticleSet>

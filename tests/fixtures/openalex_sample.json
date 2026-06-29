@@ -1,0 +1,11 @@
+{
+  "results": [
+    {
+      "doi": "https://doi.org/10.1056/NEJMOA2024001",
+      "ids": {"pmid": "https://pubmed.ncbi.nlm.nih.gov/40000001"},
+      "cited_by_count": 137,
+      "primary_location": {"source": {"display_name": "New England Journal of Medicine"}},
+      "open_access": {"is_oa": true}
+    }
+  ]
+}

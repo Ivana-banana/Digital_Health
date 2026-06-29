@@ -1,18 +1,24 @@
 """Точка входа решения (контракт ИИ-судьи: `docker compose run --rm app`, plan §12).
 
-P0: прогоняет canned-гипотезу через граф на offline-`StubLLM` (без сети/ключей,
-frozen-eval) и печатает краткий отчёт. Печатает маркер `Solution started` —
-его проверяют дымовой тест и агент-оценщик (см. DEPLOY.md).
+Прогоняет canned-гипотезу через граф на offline-`StubLLM` + замороженном корпусе
+(без сети/ключей, frozen-eval) и печатает ход исследования. Маркер `Solution started`
+проверяют дымовой тест и агент-оценщик (см. DEPLOY.md).
 """
 
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 from src.adapters.llm.stub import StubLLM
+from src.adapters.scientometrics.scimago import ScimagoTable
+from src.adapters.search.frozen import FrozenSearch
 from src.domain.schemas import PICO, Report
 from src.pipeline.deps import Deps
 from src.pipeline.graph import build_graph
+from src.pipeline.state import ResearchState
+
+ROOT = Path(__file__).resolve().parents[2]
 
 # Canned-гипотеза и ожидаемый PICO для офлайн-демо (== единый замороженный корпус, plan §10).
 DEMO_HYPOTHESIS = (
@@ -28,22 +34,45 @@ DEMO_PICO = PICO(
 
 
 def build_demo_deps() -> Deps:
-    """Deps для офлайн-демо: StubLLM с canned-PICO, остальные порты — None (деградация)."""
-    return Deps(llm=StubLLM(canned={"PICO": DEMO_PICO}))
+    """Deps для офлайн-демо: StubLLM + замороженный поиск + офлайн-квартили Scimago."""
+    return Deps(
+        llm=StubLLM(canned={"PICO": DEMO_PICO}),
+        search=FrozenSearch.from_json(ROOT / "eval" / "frozen" / "corpus.json"),
+        scimago=ScimagoTable.load(ROOT / "data" / "scimago_quartiles.csv"),
+    )
+
+
+async def run_full(hypothesis: str, deps: Deps) -> ResearchState:
+    """Прогнать гипотезу через граф и вернуть финальное состояние."""
+    graph = build_graph(deps)
+    return await graph.ainvoke({"raw_hypothesis": hypothesis})
 
 
 async def run(hypothesis: str, deps: Deps) -> Report:
-    """Прогнать одну гипотезу через граф и вернуть отчёт."""
-    graph = build_graph(deps)
-    final = await graph.ainvoke({"raw_hypothesis": hypothesis})
+    """Прогнать гипотезу через граф и вернуть отчёт."""
+    final = await run_full(hypothesis, deps)
     return final.get("report") or Report()
 
 
 def main() -> None:
     print("Solution started")
-    report = asyncio.run(run(DEMO_HYPOTHESIS, build_demo_deps()))
+    final = asyncio.run(run_full(DEMO_HYPOTHESIS, build_demo_deps()))
+    report = final.get("report") or Report()
+    queries = final.get("queries") or []
+    scoping = final.get("scoping")
+    prisma = final.get("prisma")
+
     print(f"Гипотеза: {DEMO_HYPOTHESIS}")
-    print(f"Источников: {len(report.citations)}")
+    if queries and queries[0].translation:
+        print(f"QueryTranslation: {queries[0].translation}")
+    if scoping:
+        print(f"Scoping: всего {scoping.total_candidates}, по дизайну {scoping.by_design}")
+    if prisma:
+        print(
+            f"PRISMA: включено {prisma.included}, исключено {prisma.excluded} "
+            f"{prisma.excluded_by_reason}"
+        )
+    print(f"Источников в ответе: {len(report.citations)}")
     print(f"Уровень доказательности: {report.confidence}")
     print(report.disclaimer)
 

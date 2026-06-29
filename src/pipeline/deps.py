@@ -11,11 +11,12 @@ import asyncio
 from dataclasses import dataclass, field
 
 from src.obs.logging import StructuredLogger, get_logger
+from src.obs.ratelimit import Limiters
 from src.pipeline.config import PipelineConfig
 from src.ports import (
     ClassifierPort,
-    Limiters,
     LLMPort,
+    QuartilePort,
     RerankerPort,
     ScientometricsPort,
     SearchPort,
@@ -30,6 +31,7 @@ class Deps:
     config: PipelineConfig = field(default_factory=PipelineConfig)
     search: SearchPort | None = None
     scientometrics: ScientometricsPort | None = None
+    scimago: QuartilePort | None = None
     classifier: ClassifierPort | None = None
     reranker: RerankerPort | None = None
     limiters: Limiters = field(default_factory=Limiters)

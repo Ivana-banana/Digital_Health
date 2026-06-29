@@ -37,3 +37,5 @@ class PipelineConfig:
     eval_mode: str = "frozen"  # frozen | live
     max_deep_studies: int = 15
     llm_max_concurrency: int = 6
+    current_year: int = 2026  # для recency-компонента trust (детерминизм frozen-eval)
+    ncbi_rps: float = 9.0  # token-bucket PubMed (с ключом — 10 rps, берём с запасом)

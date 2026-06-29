@@ -1,0 +1,35 @@
+{
+  "translation": "(\"nivolumab\"[MeSH] OR \"pembrolizumab\"[MeSH]) AND \"melanoma\"[MeSH] AND survival",
+  "sources": [
+    {
+      "pmid": "40000001",
+      "doi": "10.1056/nejmoa2024001",
+      "title": "Nivolumab versus chemotherapy in advanced melanoma",
+      "journal": "New England Journal of Medicine",
+      "year": 2024,
+      "abstract": "Anti-PD-1 therapy improved overall survival. HR 0.58 (95% CI 0.44-0.77).",
+      "publication_types": ["Randomized Controlled Trial"],
+      "design": "rct"
+    },
+    {
+      "pmid": "40000003",
+      "doi": "10.1016/lancet2023002",
+      "title": "Pembrolizumab for metastatic melanoma: a randomized trial",
+      "journal": "Lancet",
+      "year": 2023,
+      "abstract": "Anti-PD-1 improved survival versus chemotherapy. HR 0.63 (95% CI 0.50-0.80).",
+      "publication_types": ["Randomized Controlled Trial"],
+      "design": "rct"
+    },
+    {
+      "pmid": "40000002",
+      "title": "A retracted observational study on immunotherapy",
+      "journal": "Journal of Retracted Science",
+      "year": 2019,
+      "abstract": "Observational data only.",
+      "publication_types": ["Observational Study", "Retracted Publication"],
+      "design": "observational",
+      "retracted": true
+    }
+  ]
+}

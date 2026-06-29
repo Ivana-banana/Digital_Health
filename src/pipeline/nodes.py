@@ -1,13 +1,14 @@
-"""Узлы пайплайна (plan §3) — P0-заглушки.
+"""Узлы пайплайна (plan §3).
 
 Каждый узел возвращает частичный апдейт state (не мутирует его); списки
-склеиваются reducer'ами. Логика детерминированная; узлы intake/synthesize
-проходят через `LLMPort`, доказывая seam (структурный и текстовый исходы).
-Реальная логика поиска/извлечения/мета приходит в P1–P3.
+склеиваются reducer'ами. P1 реализован: retrieve (SearchPort+дедуп+QueryTranslation),
+scientometrics (trust+квартиль), scoping (артефакт этапа-1), screen (eligibility→PRISMA).
+Извлечение эффектов, appraisal, мета-анализ и гардрейлы — заглушки до P2–P3.
 """
 
 from __future__ import annotations
 
+from src.domain.eligibility import EligibilityCriteria, PrismaTally, screen_source
 from src.domain.identity import identity_key
 from src.domain.schemas import (
     PICO,
@@ -21,10 +22,10 @@ from src.domain.schemas import (
     Query,
     Report,
     ScopingSummary,
-    ScreenDecision,
     Source,
     StudyDesign,
 )
+from src.domain.scoring import trust_score
 from src.pipeline.deps import Deps
 from src.pipeline.state import ResearchState
 from src.ports import Ok
@@ -56,12 +57,19 @@ async def plan_queries(state: ResearchState, deps: Deps) -> ResearchState:
 
 
 async def retrieve(state: ResearchState, deps: Deps) -> ResearchState:
-    """Узел 3: поиск + identity-дедуп. Без SearchPort — один canned-источник."""
+    """Узел 3: поиск через `SearchPort` + identity-дедуп (reducer). QueryTranslation → запрос."""
+    queries = state.get("queries", [])
+    update: ResearchState = {"audit": [Event(node="retrieve")]}
     if deps.search is not None:
-        q = state["queries"][0].raw if state.get("queries") else state["raw_hypothesis"]
-        candidates = await deps.search.search(q)
+        q = queries[0].raw if queries else state["raw_hypothesis"]
+        result = await deps.search.search(q, limit=deps.config.max_deep_studies * 5)
+        update["candidates"] = result.sources
+        if queries and result.translation:
+            head = queries[0].model_copy(update={"translation": result.translation})
+            update["queries"] = [head, *queries[1:]]
+        deps.logger.event("retrieve", found=len(result.sources))
     else:
-        candidates = [
+        update["candidates"] = [
             Source(
                 pmid="00000000",
                 title="Stub publication",
@@ -70,38 +78,68 @@ async def retrieve(state: ResearchState, deps: Deps) -> ResearchState:
                 design=StudyDesign.RCT,
             )
         ]
-    deps.logger.event("retrieve", found=len(candidates))
-    return {"candidates": candidates, "audit": [Event(node="retrieve")]}
+        deps.logger.event("retrieve", found=1)
+    return update
 
 
 async def scientometrics(state: ResearchState, deps: Deps) -> ResearchState:
-    """Узел 4: наукометрия + trust (заглушка — фиксируем событие)."""
-    deps.logger.event("scientometrics", n=len(state.get("candidates", [])))
-    return {"audit": [Event(node="scientometrics")]}
+    """Узел 4: наукометрия (цитируемость/квартиль) + trust-скоринг. Влияет на порядок/GRADE."""
+    candidates = state.get("candidates", [])
+    if deps.scientometrics is not None:
+        candidates = await deps.scientometrics.enrich(candidates)
+
+    scored: list[Source] = []
+    for c in candidates:
+        upd: dict[str, object] = {}
+        if deps.scimago is not None and (q := deps.scimago.quartile(c.journal)):
+            upd["sjr_quartile"] = q
+        c = c.model_copy(update=upd) if upd else c
+        c = c.model_copy(
+            update={"trust_score": trust_score(c, current_year=deps.config.current_year)}
+        )
+        scored.append(c)
+    deps.logger.event("scientometrics", n=len(scored))
+    return {"candidates": scored, "audit": [Event(node="scientometrics")]}
 
 
 async def scoping(state: ResearchState, deps: Deps) -> ResearchState:
-    """Узел 5: ScopingSummary — детерминированная агрегация над кандидатами."""
+    """Узел 5: ScopingSummary — детерминированная агрегация над кандидатами (чекпойнт этапа-1)."""
     candidates = state.get("candidates", [])
+    pico = state.get("pico")
     by_design: dict[str, int] = {}
     for s in candidates:
         by_design[s.design.value] = by_design.get(s.design.value, 0) + 1
-    summary = ScopingSummary(total_candidates=len(candidates), by_design=by_design)
+    summary = ScopingSummary(
+        total_candidates=len(candidates),
+        by_design=by_design,
+        outcomes=[pico.outcome] if pico and pico.outcome else [],
+        populations=[pico.population] if pico and pico.population else [],
+    )
     deps.logger.event("scoping", total=summary.total_candidates)
     return {"scoping": summary, "audit": [Event(node="scoping")]}
 
 
 async def screen(state: ResearchState, deps: Deps) -> ResearchState:
-    """Узел 6: eligibility → PRISMA. Заглушка включает всех кандидатов."""
+    """Узел 6: детерминированный eligibility → PRISMA с причинами-enum (plan §6.3)."""
     candidates = state.get("candidates", [])
-    decisions = [ScreenDecision(source_id=identity_key(s), include=True) for s in candidates]
+    pico = state.get("pico")
+    criteria = EligibilityCriteria()  # ретракция отсекается всегда; типы/термины — за флагами
+    tally = PrismaTally()
+    decisions = []
+    for s in candidates:
+        d = screen_source(s, pico, criteria)
+        decisions.append(d)
+        tally.add(d)
+    included = sum(1 for d in decisions if d.include)
     prisma = PrismaCounts(
         identified=len(candidates),
         after_dedup=len(candidates),
         screened=len(candidates),
-        included=len(candidates),
+        included=included,
+        excluded=len(candidates) - included,
+        excluded_by_reason=tally.excluded_by_reason,
     )
-    deps.logger.event("screen", included=prisma.included)
+    deps.logger.event("screen", included=included, excluded=len(candidates) - included)
     return {"screening": decisions, "prisma": prisma, "audit": [Event(node="screen")]}
 
 
