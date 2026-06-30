@@ -7,7 +7,7 @@
 import asyncio
 
 from src.app.main import DEMO_HYPOTHESIS, build_demo_deps, run_full
-from src.app.view import build_view
+from src.app.view import PICO_FIELDS, build_view, design_label
 
 
 def _view():
@@ -36,6 +36,14 @@ def test_view_sources_effects_and_prisma():
     # PRISMA + QueryTranslation проброшены
     assert vm.prisma and vm.prisma.included == 2
     assert vm.query_translation
+
+
+def test_design_labels_human_readable():
+    # Сырые коды enum → читаемые подписи RU для врача; неизвестный код — как есть.
+    assert design_label("rct").startswith("РКИ")
+    assert design_label("unknown") == "Дизайн не определён"
+    assert design_label("weird_code") == "weird_code"
+    assert set(PICO_FIELDS) == {"population", "intervention", "comparison", "outcome"}
 
 
 def test_view_meta_and_report():

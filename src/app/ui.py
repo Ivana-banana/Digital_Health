@@ -28,7 +28,7 @@ from src.app.interactive import (  # noqa: E402
 )
 from src.app.live import build_live_deps  # noqa: E402
 from src.app.main import DEMO_HYPOTHESIS, build_demo_deps  # noqa: E402
-from src.app.view import build_view  # noqa: E402
+from src.app.view import PICO_FIELDS, build_view, design_label  # noqa: E402
 
 # Внутри пайплайн — EN; интерфейс врача и отчёт — RU (plan §6.1).
 DISCLAIMER = "Не является клинической рекомендацией; решение — за врачом."
@@ -66,16 +66,26 @@ def _start(hypothesis: str, live: bool) -> None:
 def _render_interrupt(value: dict) -> None:
     """Показать вопрос врачу и принять ответ → резюмировать граф (plan §3)."""
     if value.get("type") == "pico_clarification":
-        st.warning("Уточните недостающие грани PICO для поиска:")
-        answer = {f: st.text_input(f, key=f"pico_{f}") for f in value.get("missing", [])}
-        if st.button("Продолжить поиск"):
+        st.warning("Не хватает данных для поиска — заполните недостающие поля и продолжите:")
+        with st.form("pico_form"):
+            answer = {}
+            for f in value.get("missing", []):
+                label, hint = PICO_FIELDS.get(f, (f, ""))
+                answer[f] = st.text_input(label, key=f"pico_{f}", placeholder=hint, help=hint)
+            submitted = st.form_submit_button("Продолжить поиск")
+        if submitted:
             _run_segment(Command(resume=answer))
             st.rerun()
     elif value.get("type") == "scoping_checkpoint":
         s = value.get("summary", {})
-        st.info(
-            f"Scoping (этап 1): найдено {s.get('total_candidates', 0)} публикаций, "
-            f"по дизайну {s.get('by_design', {})}. Перейти к систематическому обзору?"
+        st.info(f"**Обзор поля (этап 1):** найдено {s.get('total_candidates', 0)} публикаций.")
+        st.markdown("Разбивка по типу исследования:")
+        for code, n in sorted(s.get("by_design", {}).items(), key=lambda kv: -kv[1]):
+            st.markdown(f"- **{n}** — {design_label(code)}")
+        st.caption(
+            "РКИ — самый надёжный дизайн для вывода об эффекте; «дизайн не определён» означает, "
+            "что тип не распознан по метаданным PubMed. Перейти к систематическому обзору и "
+            "мета-анализу по этим публикациям?"
         )
         if st.button("Продолжить (этап 2)"):
             _run_segment(Command(resume={"proceed": True}))
@@ -102,7 +112,7 @@ def _render_report(vm) -> None:
                     "Источник": s.label,
                     "Журнал": s.journal,
                     "Год": s.year,
-                    "Дизайн": s.design,
+                    "Дизайн": design_label(s.design),
                     "Q": s.quartile,
                     "Включён": "✓" if s.included else "",
                 }
