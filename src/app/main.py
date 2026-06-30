@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from pathlib import Path
 
 from src.adapters.llm.stub import StubLLM
@@ -73,6 +74,9 @@ async def run(hypothesis: str, deps: Deps) -> Report:
 
 
 def main() -> None:
+    # UTF-8 вывод даже в Windows-консоли cp1251 (глифы I²/–); под pytest stdout без reconfigure.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     print("Solution started")
     final = asyncio.run(run_full(DEMO_HYPOTHESIS, build_demo_deps()))
     report = final.get("report") or Report()
