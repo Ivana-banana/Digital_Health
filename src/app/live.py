@@ -36,6 +36,8 @@ def build_live_deps(*, interactive: bool = False, plots_dir: str | None = None) 
         plots_dir=plots_dir or str(ROOT / "artifacts"),
         interactive=interactive,
         eval_mode="live",
+        enable_llm_screening=True,  # семантический скрининг по PICO → гомогенный пул
+        enable_query_expansion=True,  # расширение PICO → названия препаратов (live retrieval)
     )
     ncbi_key = os.environ.get("NCBI_API_KEY") or None
     return Deps(

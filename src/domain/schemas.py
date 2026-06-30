@@ -147,6 +147,31 @@ class ScreenDecision(BaseModel):
     reason: ScreenReason | None = None  # причина исключения (если include=False)
 
 
+class QueryTerms(BaseModel):
+    """LLM-расширение PICO в фокусные поисковые термины PubMed (recall РКИ, plan §6.1).
+
+    Грани соединяются как `(p OR ...) AND (i OR ...) AND (o OR ...)`. Для intervention —
+    конкретные генерики обоих плеч (абстракты называют препараты, не классы).
+    """
+
+    population_terms: list[str] = Field(default_factory=list)
+    intervention_terms: list[str] = Field(default_factory=list)
+    outcome_terms: list[str] = Field(default_factory=list)
+
+
+class ScreenJudgment(BaseModel):
+    """LLM-вердикт семантического скрининга по PICO (вход → ScreenDecision).
+
+    Дефолт `eligible=True`: при сбое/пустом ответе LLM не теряем исследование
+    (recall важнее precision — лучше лишний кандидат, чем потерянный пивотный РКИ).
+    """
+
+    eligible: bool = True
+    reason: Literal[
+        "ok", "wrong_population", "wrong_intervention", "wrong_outcome", "wrong_study_type"
+    ] = "ok"
+
+
 class PrismaCounts(BaseModel):
     """Счётчики диаграммы PRISMA (включения/исключения по причинам)."""
 

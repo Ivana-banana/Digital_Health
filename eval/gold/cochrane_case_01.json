@@ -1,25 +1,70 @@
 {
   "case_id": "cochrane_case_01",
-  "status": "skeleton",
-  "note": "P0: каркас. Заполнить из выбранного опубликованного Cochrane-обзора (plan §10, §15).",
-  "topic": "анти-PD-1 при метастатической меланоме, общая выживаемость",
+  "status": "ready",
+  "note": "Реальный ground truth из опубликованного Cochrane-обзора (Pasquali 2018, CD011123.pub2). Сравнение BRAF+MEK vs BRAF-моно, OS — единственный гомогенный многотрайловый OS-пул обзора (I²=0). Числа сверены по абстрактам PubMed (см. per_trial). Используется как мишень валидации live-пайплайна (eval/run_cochrane.py).",
   "source_review": {
-    "title": null,
-    "doi": null,
-    "year": null
+    "title": "Systemic treatments for metastatic cutaneous melanoma",
+    "authors": "Pasquali S, et al.",
+    "journal": "Cochrane Database of Systematic Reviews",
+    "year": 2018,
+    "doi": "10.1002/14651858.CD011123.pub2",
+    "pmid": "29405038"
   },
   "pico": {
-    "population": "метастатическая меланома",
-    "intervention": "анти-PD-1",
-    "comparison": "химиотерапия",
-    "outcome": "общая выживаемость (OS)"
+    "population": "BRAF V600-mutant advanced/metastatic cutaneous melanoma",
+    "intervention": "BRAF inhibitor + MEK inhibitor combination",
+    "comparison": "BRAF inhibitor monotherapy",
+    "outcome": "overall survival"
   },
   "ground_truth": {
-    "included_pmids": [],
     "effect_type": "HR",
-    "pooled_point": null,
-    "pooled_ci_low": null,
-    "pooled_ci_high": null,
-    "i_squared": null
+    "pooled_point": 0.70,
+    "pooled_ci_low": 0.59,
+    "pooled_ci_high": 0.82,
+    "i_squared": 0,
+    "n_studies_cochrane": 4,
+    "evidence_grade": "high",
+    "comparison_label": "BRAF+MEK vs BRAF monotherapy, overall survival"
+  },
+  "included_pmids": ["26037941", "25399551", "27480103"],
+  "per_trial": [
+    {
+      "trial": "COMBI-d",
+      "pmid": "26037941",
+      "doi": "10.1016/S0140-6736(15)60898-4",
+      "intervention": "dabrafenib + trametinib",
+      "comparison": "dabrafenib + placebo",
+      "os_hr": 0.71,
+      "os_ci_low": 0.55,
+      "os_ci_high": 0.92,
+      "abstract_span": "Median overall survival was 25.1 months ... versus 18.7 months ... (hazard ratio [HR] 0.71, 95% CI 0.55-0.92; p=0.0107)."
+    },
+    {
+      "trial": "COMBI-v",
+      "pmid": "25399551",
+      "doi": "10.1056/NEJMoa1412690",
+      "intervention": "dabrafenib + trametinib",
+      "comparison": "vemurafenib",
+      "os_hr": 0.69,
+      "os_ci_low": 0.53,
+      "os_ci_high": 0.89,
+      "abstract_span": "overall survival ... (hazard ratio for death, 0.69; 95% CI, 0.53 to 0.89; P=0.005)."
+    },
+    {
+      "trial": "coBRIM",
+      "pmid": "27480103",
+      "doi": "10.1016/S1470-2045(16)30122-X",
+      "intervention": "vemurafenib + cobimetinib",
+      "comparison": "vemurafenib + placebo",
+      "os_hr": 0.70,
+      "os_ci_low": 0.55,
+      "os_ci_high": 0.90,
+      "abstract_span": "Median overall survival was 22.3 months ... versus 17.4 months ... (HR 0.70, 95% CI 0.55-0.90; p=0.005)."
+    }
+  ],
+  "expected_pool": {
+    "note": "Наш пул трёх пивотных РКИ через src/stats/meta (CI→SE), для сверки с Cochrane.",
+    "fixed_iv": {"point": 0.70, "ci_low": 0.605, "ci_high": 0.811, "i_squared": 0.0},
+    "random_hksj": {"point": 0.70, "ci_low": 0.676, "ci_high": 0.725, "i_squared": 0.0}
   }
 }

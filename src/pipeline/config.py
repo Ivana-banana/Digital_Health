@@ -33,11 +33,16 @@ class PipelineConfig:
     vector_backend: str = "faiss"  # faiss | pgvector
     enable_fulltext_mining: bool = False  # OA full-text → RAG/реранкер (качество)
     enable_screening_clf: bool = False  # обученная модель C
+    enable_llm_screening: bool = False  # LLM-скрининг кандидатов по PICO (live; recall>precision)
+    enable_query_expansion: bool = (
+        False  # LLM-расширение PICO → названия препаратов (live retrieval)
+    )
     enable_reasoning_escalation: bool = False  # тяжёлые шаги на Qwen3 235B
     interactive: bool = False  # human-in-the-loop: interrupt() для PICO/scoping (UI; plan §3)
     eval_mode: str = "frozen"  # frozen | live
     plots_dir: str | None = None  # куда писать forest/funnel PNG (None → не генерировать)
     max_deep_studies: int = 15
+    max_retrieved: int = 200  # верхняя граница ретрива (live; широкий пул → скрининг сужает)
     llm_max_concurrency: int = 6
     current_year: int = 2026  # для recency-компонента trust (детерминизм frozen-eval)
     ncbi_rps: float = 9.0  # token-bucket PubMed (с ключом — 10 rps, берём с запасом)
