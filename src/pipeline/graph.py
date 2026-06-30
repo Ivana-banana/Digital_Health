@@ -1,14 +1,16 @@
 """Сборка LangGraph-графа (plan §3).
 
-P0: линейная цепь backbone-узлов с reducer'ами состояния. `Deps` внедряются
-через замыкание (узлы остаются (state, deps)-функциями). Ветвления, scoping-
-interrupt и checkpointer добавляются в P1/P3.
+Линейная цепь backbone-узлов с reducer'ами + одно условное ребро (fact-check).
+`Deps` внедряются через замыкание (узлы остаются (state, deps)-функциями). Для
+human-in-the-loop (interrupt() в intake/scoping, plan §3) передаётся checkpointer —
+без него граф идёт насквозь (офлайн/судья-режим), с ним пауза резюмируется по thread_id.
 """
 
 from __future__ import annotations
 
 from functools import partial
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 
 from src.pipeline.deps import Deps
@@ -16,8 +18,12 @@ from src.pipeline.nodes import NODE_SEQUENCE, route_after_factcheck
 from src.pipeline.state import ResearchState
 
 
-def build_graph(deps: Deps):
-    """Скомпилировать граф гипотеза→отчёт с внедрёнными зависимостями."""
+def build_graph(deps: Deps, *, checkpointer: BaseCheckpointSaver | None = None):
+    """Скомпилировать граф гипотеза→отчёт с внедрёнными зависимостями.
+
+    `checkpointer` нужен только для интерактивного режима (interrupt/resume); по
+    умолчанию None → backbone проходит насквозь (контракт ИИ-судьи неизменен).
+    """
     builder = StateGraph(ResearchState)
 
     for name, fn in NODE_SEQUENCE:
@@ -31,4 +37,4 @@ def build_graph(deps: Deps):
         NODE_SEQUENCE[-1][0], route_after_factcheck, {"synthesize": "synthesize", END: END}
     )
 
-    return builder.compile()
+    return builder.compile(checkpointer=checkpointer)

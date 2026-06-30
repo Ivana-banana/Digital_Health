@@ -30,9 +30,29 @@
 
 Воспроизводимое развёртывание для агента-оценщика — в [DEPLOY.md](DEPLOY.md).
 
+**Контракт ИИ-судьи** (офлайн, без сети/ключей):
+
 ```bash
-docker compose run --rm app
+docker compose run --rm app          # печатает «Solution started» + ход анализа, exit 0
 ```
+
+**Демо для врача (Streamlit-чат)** — гипотеза → PICO → поиск → мета-анализ → отчёт,
+с human-in-the-loop чекпойнтами (уточнение PICO, scoping этап-1 → этап-2):
+
+```bash
+docker compose up ui                 # → http://localhost:8501
+# или локально без docker:
+make install-ui && make ui
+```
+
+**Локальные проверки (== CI):**
+
+```bash
+make install                         # рантайм + dev-зависимости
+make ci                              # ruff + формат + pytest + frozen-eval
+```
+
+Деплой UI в Yandex Cloud (генерация по AI Studio API, GPU не нужен) — см. [DEPLOY.md](DEPLOY.md).
 
 ## Структура репозитория
 

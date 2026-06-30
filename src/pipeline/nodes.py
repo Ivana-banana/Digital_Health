@@ -13,6 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from langgraph.graph import END
+from langgraph.types import interrupt
 
 from src.domain.appraisal import appraise_baseline
 from src.domain.eligibility import EligibilityCriteria, PrismaTally, screen_source
@@ -62,6 +63,9 @@ EXTRACT_SYS = (
 # Предел петли фактчекинга: регенерация секции отчёта не более 2 раз (plan §3, §9).
 MAX_FACTCHECK_RETRIES = 2
 
+# Грани PICO для проверки полноты и уточняющего interrupt (plan §3).
+_PICO_FACETS = ("population", "intervention", "comparison", "outcome")
+
 
 async def sanitize(state: ResearchState, deps: Deps) -> ResearchState:
     """Узел 0: PII-скраб входа врача (мед-данные конфиденциальны, plan §9)."""
@@ -80,6 +84,15 @@ async def intake_pico(state: ResearchState, deps: Deps) -> ResearchState:
         schema=PICO,
     )
     pico = res.value if isinstance(res, Ok) else PICO()
+    # Human-in-the-loop: при неполном PICO спросить врача (только UI; plan §3). В офлайн/
+    # судья-режиме interactive=False → узел идёт насквозь без чекпойнтера.
+    if deps.config.interactive and not pico.is_complete():
+        missing = [f for f in _PICO_FACETS if not getattr(pico, f)]
+        answer = interrupt(
+            {"type": "pico_clarification", "pico": pico.model_dump(), "missing": missing}
+        )
+        if isinstance(answer, dict):
+            pico = pico.model_copy(update={k: v for k, v in answer.items() if k in missing and v})
     deps.logger.event("intake_pico", complete=pico.is_complete())
     return {"pico": pico, "audit": [Event(node="intake_pico")]}
 
@@ -151,6 +164,10 @@ async def scoping(state: ResearchState, deps: Deps) -> ResearchState:
         outcomes=[pico.outcome] if pico and pico.outcome else [],
         populations=[pico.population] if pico and pico.population else [],
     )
+    # Чекпойнт «этап-1 → этап-2»: показать обзор поля и дождаться подтверждения врача
+    # (только UI; plan §3). В офлайн/судья-режиме interactive=False → без паузы.
+    if deps.config.interactive:
+        interrupt({"type": "scoping_checkpoint", "summary": summary.model_dump()})
     deps.logger.event("scoping", total=summary.total_candidates)
     return {"scoping": summary, "audit": [Event(node="scoping")]}
 

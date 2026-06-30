@@ -4,3 +4,14 @@ services:
     env_file:
       - path: .env
         required: false
+
+  # Streamlit-чат врача (демо). Запуск: docker compose up ui → http://localhost:8501
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    ports:
+      - "8501:8501"
+    env_file:
+      - path: .env
+        required: false

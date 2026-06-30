@@ -1,0 +1,4 @@
+# Зависимости Streamlit-UI (plan §12). Отдельно от requirements.txt, чтобы судья-
+# образ (CLI) и CI оставались лёгкими: streamlit тянет pandas/pyarrow/altair.
+-r requirements.txt
+streamlit>=1.37,<2

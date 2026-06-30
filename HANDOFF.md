@@ -37,16 +37,40 @@ Fact-checker — детерминированный (верификация сс
 таблица эффектов → пул `random_hksj` HR 0.61 (95% CI **0.36–1.02** — честное HKSJ-расширение
 при k=2) → forest/funnel в `artifacts/` → GRADE moderate, ответ градуирован, ссылки verified.
 
-## Осталось (P4–P6, см. plan.md §11)
-- **P4** — UI/деплой: Streamlit `astream_events`+`interrupt()` (PICO-уточнение и scoping-чекпойнт),
-  вкладки (источники/таблица/графики/PRISMA/trust), деплой в YC, Sourcecraft CI с frozen-eval.
+## Реализовано в P4 (UI + деплой, ветка `vano`, всё зелёное)
+- **Human-in-the-loop:** `interrupt()` в `intake_pico` (уточнение неполного PICO) и `scoping`
+  (чекпойнт этап-1 → этап-2) под флагом `PipelineConfig.interactive` — в офлайн/судья-режиме
+  (`interactive=False`, без чекпойнтера) backbone идёт насквозь, контракт ИИ-судьи неизменен.
+  `build_graph(deps, *, checkpointer=...)`; интерактивный граф — на `MemorySaver`+`thread_id`.
+- **Streamlit-чат** (`app/ui.py`, тонкая оболочка без логики): стриминг прогресса узлов
+  (`astream`), пауза на чекпойнтах с резюмом `Command(resume=...)`, вкладки источники/эффекты/
+  графики/PRISMA/trust. Ядро в `app/interactive.py` (драйвер) + `app/view.py` (чистый view-prep) —
+  оба под pytest; UI верифицирован офлайн через `AppTest`. Офлайн-демо без ключей.
+- **Деплой/CI:** `Dockerfile.ui`+сервис `ui` в compose (порт 8501); судья-`Dockerfile` чинён
+  (COPY `eval/`+`data/` — рантайм их читает); `requirements-ui.txt` (streamlit отдельно, образ
+  судьи/CI лёгкие); `eval/run_frozen.py` (frozen-eval-subset: hallucination-rate=0 хард-гейт);
+  Makefile `eval`/`ui`/`install-ui`; Sourcecraft CI гоняет `make ci` (вкл. frozen-eval)+`make run`.
+
+**Quality-gate P4:** `docker compose run --rm app` → отчёт exit 0 (контракт неизменен);
+`make ci` зелёный (73 теста + frozen-eval). **Осталось вручную:** живой пуш UI в YC
+(нужны облачные креды) — артефакты и инструкция готовы (DEPLOY.md), локально верифицировано.
+
+**Решение по персистентности (обсуждено, отложено):** БД пока не делаем — память живёт в
+рамках сессии графа (`MemorySaver`), сетевой/LLM-кэш — in-memory `dict` в `Deps`. Если
+вернёмся: рекомендация — **SQLite-first за новым `StorePort`** (офлайн → судья-контракт цел),
+pgvector только для облачного full-text RAG за флагом `enable_fulltext_mining`. Принцип против
+галлюцинаций: LLM видит не «всю базу», а bounded top-k извлечённых спанов + заземление.
+
+## Осталось (P5–P6, см. plan.md §11)
 - **P5** — качество: модель C (скрининг), reasoning-эскалация на Qwen3 235B, pgvector,
   **full-text mining** (OA RAG, за флагом `enable_fulltext_mining`), больше Cochrane-кейсов.
 - **P6** — харденинг + презентация: полный frozen-eval, 2 демо-кейса, видео-питч.
 
 **Оркестровка к добавлению:** fan-out map-reduce под LLM-семафором (извлечение/оценка
-параллельно), checkpointer (Sqlite)+`thread_id`, условные ветки (relax-петля, fact-check
-с `recursion_limit`), human-in-the-loop через `interrupt()`.
+параллельно), relax-петля (ослабление запроса при 0 результатов). **Готово в P4:**
+human-in-the-loop через `interrupt()` + checkpointer (`MemorySaver`)+`thread_id`; условное
+ребро fact-check (`recursion_limit`/retry≤2) — с P3. Sqlite-saver не понадобился (демо в
+одной сессии); своп на durable-saver — смена аргумента `build_graph(checkpointer=...)`.
 
 **Не резать (ядро качества):** `effect_conversions`, identity-дедуп, ограничители, frozen-eval,
 `unavailable`-семантика, scoping-чекпойнт, ограниченная петля fact-checker.

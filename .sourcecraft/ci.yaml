@@ -1,4 +1,4 @@
-# Sourcecraft CI — проверка каждого PR в main: lint + формат + тесты + запуск.
+# Sourcecraft CI — проверка каждого PR в main: lint + формат + тесты + frozen-eval + запуск.
 # Логика проверок живёт в Makefile (единый источник правды); CI лишь вызывает цели.
 # Без секретов и без docker-in-docker: «работает ли код» проверяем прямым запуском
 # точки входа (python -m src.app.main), а не через docker compose.

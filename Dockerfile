@@ -10,5 +10,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
+# Замороженный корпус + наукометрия читаются в рантайме (contract ИИ-судьи, plan §12).
+COPY eval/ ./eval/
+COPY data/ ./data/
 
 CMD ["python", "-m", "src.app.main"]

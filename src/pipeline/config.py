@@ -34,6 +34,7 @@ class PipelineConfig:
     enable_fulltext_mining: bool = False  # OA full-text → RAG/реранкер (качество)
     enable_screening_clf: bool = False  # обученная модель C
     enable_reasoning_escalation: bool = False  # тяжёлые шаги на Qwen3 235B
+    interactive: bool = False  # human-in-the-loop: interrupt() для PICO/scoping (UI; plan §3)
     eval_mode: str = "frozen"  # frozen | live
     plots_dir: str | None = None  # куда писать forest/funnel PNG (None → не генерировать)
     max_deep_studies: int = 15

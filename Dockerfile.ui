@@ -1,0 +1,20 @@
+# Streamlit-UI для демо в Yandex Cloud (plan §12). Генерация — по AI Studio API,
+# GPU не нужен. Отдельно от судья-образа, чтобы тот оставался лёгким.
+FROM python:3.11-slim
+
+ENV PYTHONIOENCODING=UTF-8 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+COPY requirements.txt requirements-ui.txt ./
+RUN pip install --no-cache-dir -r requirements-ui.txt
+
+COPY src/ ./src/
+COPY eval/ ./eval/
+COPY data/ ./data/
+
+EXPOSE 8501
+# headless + слушать все интерфейсы — для контейнера/облака.
+CMD ["streamlit", "run", "src/app/ui.py", \
+     "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true"]
