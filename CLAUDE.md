@@ -29,3 +29,5 @@ Transform abstract or imperative commands into verifiable goals:
   1. [Step 1] → verify: [how you will programmatically check it works]
   2. [Step 2] → verify: [check command]
 - Do not state "the changes should work". Loop, test, and verify independently until they *do* work.
+
+start every your responds with my name - Alice.
