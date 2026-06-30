@@ -78,7 +78,15 @@ def main() -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     print("Solution started")
-    final = asyncio.run(run_full(DEMO_HYPOTHESIS, build_demo_deps()))
+    # По умолчанию — офлайн (контракт ИИ-судьи). `--live` → реальные PubMed+AI Studio из .env.
+    if "--live" in sys.argv:
+        from src.app.live import build_live_deps
+
+        deps = build_live_deps()
+        print("Режим: живые данные (PubMed + AI Studio)")
+    else:
+        deps = build_demo_deps()
+    final = asyncio.run(run_full(DEMO_HYPOTHESIS, deps))
     report = final.get("report") or Report()
     queries = final.get("queries") or []
     scoping = final.get("scoping")

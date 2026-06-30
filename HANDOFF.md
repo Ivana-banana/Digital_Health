@@ -46,6 +46,11 @@ Fact-checker — детерминированный (верификация сс
   (`astream`), пауза на чекпойнтах с резюмом `Command(resume=...)`, вкладки источники/эффекты/
   графики/PRISMA/trust. Ядро в `app/interactive.py` (драйвер) + `app/view.py` (чистый view-prep) —
   оба под pytest; UI верифицирован офлайн через `AppTest`. Офлайн-демо без ключей.
+- **Live-режим подключён:** `app/live.build_live_deps()` (реальные PubMed + AI Studio из `.env`,
+  Scimago офлайн; OpenAlex/верификатор off на первом прогоне). Доступ: UI-переключатель
+  «Офлайн-демо / Живые данные» и `python -m src.app.main --live`. Проводка под тестом
+  (`tests/test_live_deps.py`, без сети); реальный сетевой прогон — на машине с `.env`+интернетом
+  (из CI/песочницы сеть закрыта). Судья-путь (без флага) и тесты остаются офлайн.
 - **Деплой/CI:** `Dockerfile.ui`+сервис `ui` в compose (порт 8501); судья-`Dockerfile` чинён
   (COPY `eval/`+`data/` — рантайм их читает); `requirements-ui.txt` (streamlit отдельно, образ
   судьи/CI лёгкие); `eval/run_frozen.py` (frozen-eval-subset: hallucination-rate=0 хард-гейт);

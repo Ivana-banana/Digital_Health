@@ -38,6 +38,9 @@
      (`app/ui.py` — тонкая оболочка; ядро в `app/interactive.py`+`app/view.py`, под pytest);
      `Dockerfile.ui`+сервис `ui`; чинён судья-`Dockerfile` (COPY eval/+data/); `requirements-ui.txt`;
      `eval/run_frozen.py` (frozen-eval-subset); Sourcecraft CI (`make ci` вкл. frozen-eval + `make run`).
+     **Live-режим:** `app/live.build_live_deps()` (PubMed+AI Studio из `.env`) — UI-переключатель
+     «Офлайн/Живые» и `python -m src.app.main --live`. Проводка под тестом без сети; реальный прогон —
+     на машине с `.env`+интернетом. Судья-путь и тесты — офлайн.
 
 5. **Решения по ходу (для контекста):**
    - **БД отложена** — память живёт в рамках сессии графа (`MemorySaver`), кэш — in-memory `dict`.

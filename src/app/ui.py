@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 # `streamlit run src/app/ui.py` кладёт в sys.path каталог скрипта, не корень → добавляем корень.
@@ -25,9 +26,9 @@ from src.app.interactive import (  # noqa: E402
     new_thread_config,
     pending_interrupt,
 )
+from src.app.live import build_live_deps  # noqa: E402
 from src.app.main import DEMO_HYPOTHESIS, build_demo_deps  # noqa: E402
 from src.app.view import build_view  # noqa: E402
-from src.pipeline.config import PipelineConfig  # noqa: E402
 
 # Внутри пайплайн — EN; интерфейс врача и отчёт — RU (plan §6.1).
 DISCLAIMER = "Не является клинической рекомендацией; решение — за врачом."
@@ -50,10 +51,13 @@ def _run_segment(command) -> None:
         status.update(label="Сегмент завершён", state="complete")
 
 
-def _start(hypothesis: str) -> None:
-    """Инициализировать сессию графа (офлайн-демо: StubLLM + замороженный корпус)."""
-    deps = build_demo_deps()
-    deps.config = PipelineConfig(plots_dir=deps.config.plots_dir, interactive=True)
+def _start(hypothesis: str, live: bool) -> None:
+    """Инициализировать сессию графа: офлайн-демо (StubLLM+корпус) или живые PubMed+AI Studio."""
+    if live:
+        deps = build_live_deps(interactive=True)  # реальные источники из .env
+    else:
+        deps = build_demo_deps()
+        deps.config = replace(deps.config, interactive=True)
     st.session_state.graph = build_session_graph(deps)
     st.session_state.cfg = new_thread_config()
     _run_segment({"raw_hypothesis": hypothesis})
@@ -153,9 +157,20 @@ def main() -> None:
     st.title("AI-ассистент EBM · онкология")
     st.caption("Гипотеза врача → PICO → поиск → мета-анализ → проверяемый отчёт. " + DISCLAIMER)
 
+    mode = st.radio(
+        "Режим данных",
+        ["Офлайн-демо (заглушка)", "Живые данные (PubMed + AI Studio)"],
+        horizontal=True,
+        help="Живой режим требует заполненный .env (ключи AI Studio). Офлайн — без ключей.",
+    )
+    live = mode.startswith("Живые")
     hypothesis = st.text_area("Гипотеза врача", value=DEMO_HYPOTHESIS, height=80)
     if st.button("Запустить анализ", type="primary"):
-        _start(hypothesis)
+        try:
+            _start(hypothesis, live)
+        except Exception as exc:  # показать врачу понятную причину, не трейс
+            st.error(f"Ошибка запуска ({'live' if live else 'офлайн'}): {exc}")
+            st.stop()
 
     if "graph" not in st.session_state:
         return
