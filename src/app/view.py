@@ -48,6 +48,55 @@ def design_label(code: str) -> str:
     return DESIGN_LABELS.get(code, code)
 
 
+# Подписи градуированной доказательности и источника дисперсии (RU) — не показываем коды врачу.
+DIRECTION_LABELS = {
+    "favors_intervention": "в пользу терапии",
+    "favors_control": "в пользу контроля",
+    "no_effect": "нет эффекта",
+}
+STRENGTH_LABELS = {
+    "supported": "подтверждается",
+    "uncertain": "вывод неуверенный",
+    "insufficient": "доказательств недостаточно",
+}
+GRADE_LABELS = {
+    "high": "высокая",
+    "moderate": "умеренная",
+    "low": "низкая",
+    "very_low": "очень низкая",
+}
+VARIANCE_LABELS = {
+    "reported_ci": "ДИ из статьи",
+    "reported_se": "SE из статьи",
+    "derived_2x2": "из таблицы 2×2",
+    "derived_p": "из p-значения",
+    "unavailable": "не сообщено",
+}
+
+
+def _label(table: dict[str, str], value: str | None) -> str:
+    """Перевести код в RU-подпись; None/неизвестное → прочерк/как есть."""
+    if not value:
+        return "—"
+    return table.get(value, value)
+
+
+def direction_label(value: str | None) -> str:
+    return _label(DIRECTION_LABELS, value)
+
+
+def strength_label(value: str | None) -> str:
+    return _label(STRENGTH_LABELS, value)
+
+
+def grade_label(value: str | None) -> str:
+    return _label(GRADE_LABELS, value)
+
+
+def variance_label(value: str | None) -> str:
+    return _label(VARIANCE_LABELS, value)
+
+
 @dataclass(frozen=True)
 class SourceRow:
     """Строка вкладки «Источники» / «Trust»: метка-ссылка + наукометрия."""

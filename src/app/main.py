@@ -15,6 +15,7 @@ from src.adapters.llm.stub import StubLLM
 from src.adapters.scientometrics.scimago import ScimagoTable
 from src.adapters.search.frozen import FrozenSearch
 from src.adapters.verify.corpus import CorpusVerifier
+from src.app.view import direction_label, grade_label, variance_label
 from src.domain.identity import identity_key
 from src.domain.schemas import PICO, Extraction, MetaResult, Report
 from src.pipeline.config import PipelineConfig
@@ -108,7 +109,8 @@ def main() -> None:
         print("Извлечённые эффекты:")
         for e in extractions:
             ci = f"({e.ci_low}–{e.ci_high})" if e.ci_low else ""
-            print(f"  - {e.source_id}: {e.effect_type} {e.point} {ci} [{e.variance_source}]")
+            vs = variance_label(e.variance_source)
+            print(f"  - {e.source_id}: {e.effect_type} {e.point} {ci} [{vs}]")
     if isinstance(meta, MetaResult):
         print(
             f"Мета-анализ ({meta.model}, k={meta.k_studies}): {meta.effect_type} "
@@ -117,7 +119,10 @@ def main() -> None:
         )
         if meta.forest_plot_path:
             print(f"Графики: {meta.forest_plot_path} | {meta.funnel_plot_path}")
-    print(f"Направление: {report.direction} | Доказательность (GRADE): {report.confidence}")
+    print(
+        f"Направление: {direction_label(report.direction)} | "
+        f"Доказательность (GRADE): {grade_label(report.confidence)}"
+    )
     print(report.disclaimer)
 
 

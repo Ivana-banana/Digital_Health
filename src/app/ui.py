@@ -28,7 +28,15 @@ from src.app.interactive import (  # noqa: E402
 )
 from src.app.live import build_live_deps  # noqa: E402
 from src.app.main import DEMO_HYPOTHESIS, build_demo_deps  # noqa: E402
-from src.app.view import PICO_FIELDS, build_view, design_label  # noqa: E402
+from src.app.view import (  # noqa: E402
+    PICO_FIELDS,
+    build_view,
+    design_label,
+    direction_label,
+    grade_label,
+    strength_label,
+    variance_label,
+)
 
 # Внутри пайплайн — EN; интерфейс врача и отчёт — RU (plan §6.1).
 DISCLAIMER = "Не является клинической рекомендацией; решение — за врачом."
@@ -98,8 +106,11 @@ def _render_report(vm) -> None:
     with tabs[0]:
         r = vm.report
         if r:
-            st.markdown(f"**Направление:** {r.direction or '—'} · **Сила:** {r.strength or '—'}")
-            st.markdown(f"**Доказательность (GRADE):** {r.confidence or '—'}")
+            st.markdown(
+                f"**Направление эффекта:** {direction_label(r.direction)} · "
+                f"**Уверенность вывода:** {strength_label(r.strength)}"
+            )
+            st.markdown(f"**Доказательность (GRADE):** {grade_label(r.confidence)}")
             if r.summary:
                 st.write(r.summary)
             for c in r.facts:
@@ -129,7 +140,7 @@ def _render_report(vm) -> None:
                     "Мера": e.effect_type,
                     "Оценка": e.point,
                     "95% CI": e.ci,
-                    "Дисперсия": e.variance_source,
+                    "Дисперсия": variance_label(e.variance_source),
                 }
                 for e in vm.effects
             ]
