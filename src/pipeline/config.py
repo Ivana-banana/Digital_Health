@@ -35,6 +35,7 @@ class PipelineConfig:
     enable_screening_clf: bool = False  # обученная модель C
     enable_reasoning_escalation: bool = False  # тяжёлые шаги на Qwen3 235B
     eval_mode: str = "frozen"  # frozen | live
+    plots_dir: str | None = None  # куда писать forest/funnel PNG (None → не генерировать)
     max_deep_studies: int = 15
     llm_max_concurrency: int = 6
     current_year: int = 2026  # для recency-компонента trust (детерминизм frozen-eval)

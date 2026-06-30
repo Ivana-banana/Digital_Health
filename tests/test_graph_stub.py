@@ -49,3 +49,22 @@ def test_p2_extraction_and_pool():
     assert 0.55 < meta.pooled_point < 0.66  # пул HR ~0.61, в пользу терапии
     assert meta.grade in ("high", "moderate", "low", "very_low")
     assert final["report"].direction == "favors_intervention"
+
+
+def test_p3_graduated_evidence_and_grounded():
+    """Quality-gate P3: random+HKSJ, градуированный ответ, провенанс верифицирован."""
+    final = asyncio.run(run_full(DEMO_HYPOTHESIS, build_demo_deps()))
+
+    meta = final["meta"]
+    assert isinstance(meta, MetaResult)
+    assert meta.model == "random_hksj"  # random-effects + HKSJ — основной пул (plan §8)
+    assert meta.tau_squared is not None
+    assert meta.forest_plot_path and meta.funnel_plot_path  # forest/funnel сгенерированы
+
+    report = final["report"]
+    assert report.direction == "favors_intervention"  # направление
+    assert report.strength in ("supported", "uncertain", "insufficient")  # сила
+    assert report.confidence in ("high", "moderate", "low", "very_low")  # уверенность (GRADE)
+    # Провенанс: отчёт рендерит только verified-факты, есть трассировка к источнику
+    assert report.facts and all(c.verified for c in report.facts)
+    assert any(c.source_id for c in report.facts)

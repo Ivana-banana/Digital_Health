@@ -20,6 +20,7 @@ from src.ports import (
     RerankerPort,
     ScientometricsPort,
     SearchPort,
+    VerifierPort,
 )
 
 
@@ -34,6 +35,7 @@ class Deps:
     scimago: QuartilePort | None = None
     classifier: ClassifierPort | None = None
     reranker: RerankerPort | None = None
+    verifier: VerifierPort | None = None
     limiters: Limiters = field(default_factory=Limiters)
     cache: dict[str, object] = field(default_factory=dict)
     logger: StructuredLogger = field(default_factory=lambda: get_logger("pipeline"))

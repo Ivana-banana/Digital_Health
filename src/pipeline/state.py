@@ -41,5 +41,7 @@ class ResearchState(TypedDict, total=False):
     appraisals: Annotated[list[Appraisal], operator.add]
     meta: MetaResult | Infeasible | None
     report: Report | None
+    factcheck_retries: int  # счётчик ограниченной петли фактчекинга (plan §9)
+    needs_regen: bool  # сигнал роутера: регенерировать секцию отчёта
     provenance: Annotated[list[Claim], operator.add]
     audit: Annotated[list[Event], operator.add]

@@ -94,3 +94,12 @@ class RerankerPort(Protocol):
     """Реранкер-приоритизатор кандидатов (модель B), plan §6.4."""
 
     async def rerank(self, query: str, sources: list[Source], *, top_n: int) -> list[Source]: ...
+
+
+class VerifierPort(Protocol):
+    """Верификация ссылки (DOI/PMID/source_id) против реального источника (plan §9).
+
+    Офлайн — против замороженного корпуса; live — Crossref/PubMed за тем же портом.
+    """
+
+    async def verify(self, source_id: str) -> bool: ...

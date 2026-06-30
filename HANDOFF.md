@@ -9,7 +9,7 @@
 уровнем доказательности. Слоистая (гексагональная) архитектура: `domain` ← `ports` ←
 `adapters`, оркестрация в `pipeline`, наблюдаемость в `obs`, статистика в `stats`.
 
-## Реализовано (P0–P2, ветка `vano`, всё зелёное)
+## Реализовано (P0–P3, ветка `vano`, всё зелёное)
 Сквозной пайплайн **проходит насквозь** на заглушках и проверен вживую:
 
 - **P0** — каркас: слои/порты/`Deps`/`PipelineConfig`, `LLMPort`→AI Studio, домен-схемы
@@ -19,21 +19,25 @@
   кросс-ID дедуп (`domain/identity`), token-bucket лимитеры (`obs/ratelimit`), trust-скоринг
   (`domain/scoring`), eligibility→PRISMA (`domain/eligibility`), OpenAlex/Scimago, scoping.
 - **P2** — извлечение (защищаемая фаза): `stats/effect_conversions` (CI↔SE, 2×2→OR/RR, p→SE),
-  LLM-Extractor с честным `unavailable`+span, `stats/meta` (fixed-effect пул+I²), GRADE
-  (`domain/grade`), appraisal по дизайну (`domain/appraisal`).
+  LLM-Extractor с честным `unavailable`+span, fixed-effect пул+I², GRADE, appraisal по дизайну.
+- **P3** — мета + гардрейлы: `stats/meta` (random-effects DL + **HKSJ** через t-квантиль на
+  чистом stdlib, τ², **Egger**, leave-one-out + sensitivity по RoB, матрица совместимости),
+  `stats/distributions` (t-квантиль/p-value через неполную бета, без scipy), `stats/plots`
+  (forest/funnel, matplotlib Agg, офлайн), GRADE-понижения за публикационное смещение и RoB,
+  `domain/sanitize` (PII-скраб + анти-инъекция), **fact-checker** (`VerifierPort` +
+  офлайн `CorpusVerifier`, провенанс, ограниченная петля retry≤2 через условное ребро графа),
+  **градуированная доказательность** (направление+сила+уверенность).
 
-**Живые агенты (зовут модель):** Intake/PICO, Extractor, Synthesizer. Остальные узлы —
-детерминированные tool-узлы.
+**Живые агенты (зовут модель):** Intake/PICO, Extractor, Synthesizer (Alice/ru).
+Fact-checker — детерминированный (верификация ссылок надёжнее LLM; live Crossref/PubMed за тем
+же портом). Остальные узлы — детерминированные tool-узлы.
 
 **Проверено live:** AI Studio (PICO на EN, извлечение HR + честный `unavailable`), PubMed.
 Демо (`python -m src.app.main`): QueryTranslation → scoping → PRISMA (ретракция исключена) →
-таблица эффектов → пул HR 0.61 (95% CI 0.51–0.73) → GRADE moderate.
+таблица эффектов → пул `random_hksj` HR 0.61 (95% CI **0.36–1.02** — честное HKSJ-расширение
+при k=2) → forest/funnel в `artifacts/` → GRADE moderate, ответ градуирован, ссылки verified.
 
-## Осталось (P3–P6, см. plan.md §11)
-- **P3** — мета + гардрейлы: random-effects (DerSimonian–Laird) + **HKSJ**, Egger, **forest/funnel**
-  плоты, sensitivity (leave-one-out, по RoB); **fact-checker** (верификация каждого DOI/PMID,
-  провенанс, регенерация только секции, retry≤2); **PII-скраб** + анти-инъекция; градуированная
-  доказательность. LLM-агенты: Appraiser (reasoning), Meta-Interpreter, Fact-Checker.
+## Осталось (P4–P6, см. plan.md §11)
 - **P4** — UI/деплой: Streamlit `astream_events`+`interrupt()` (PICO-уточнение и scoping-чекпойнт),
   вкладки (источники/таблица/графики/PRISMA/trust), деплой в YC, Sourcecraft CI с frozen-eval.
 - **P5** — качество: модель C (скрининг), reasoning-эскалация на Qwen3 235B, pgvector,
@@ -74,10 +78,10 @@ python -m src.app.main          # офлайн-демо, печатает Soluti
 
 ## Карта кода
 ```
-src/domain/      schemas, identity, scoring, eligibility, grade, appraisal  (чистое ядро)
-src/stats/       effect_conversions, meta                                   (чистая статистика)
-src/ports/       Протоколы LLM/Search/Scientometrics/Quartile/Reranker
-src/adapters/    llm/{stub,aistudio}, search/{pubmed,frozen}, scientometrics/{openalex,scimago}
+src/domain/      schemas, identity, scoring, eligibility, grade, appraisal, sanitize  (чистое ядро)
+src/stats/       effect_conversions, meta, distributions, plots             (чистая статистика)
+src/ports/       Протоколы LLM/Search/Scientometrics/Quartile/Reranker/Verifier
+src/adapters/    llm/{stub,aistudio}, search/{pubmed,frozen}, scientometrics/{openalex,scimago}, verify/{corpus}
 src/pipeline/    config, deps, state, nodes, graph                          (оркестрация)
 src/obs/         logging, ratelimit
 src/app/main.py  точка входа (контракт ИИ-судьи)

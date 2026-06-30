@@ -13,7 +13,10 @@ from pathlib import Path
 from src.adapters.llm.stub import StubLLM
 from src.adapters.scientometrics.scimago import ScimagoTable
 from src.adapters.search.frozen import FrozenSearch
+from src.adapters.verify.corpus import CorpusVerifier
+from src.domain.identity import identity_key
 from src.domain.schemas import PICO, Extraction, MetaResult, Report
+from src.pipeline.config import PipelineConfig
 from src.pipeline.deps import Deps
 from src.pipeline.graph import build_graph
 from src.pipeline.state import ResearchState
@@ -43,14 +46,17 @@ DEMO_EXTRACTIONS = [
 
 
 def build_demo_deps() -> Deps:
-    """Deps для офлайн-демо: StubLLM + замороженный поиск + офлайн-квартили Scimago."""
+    """Deps для офлайн-демо: StubLLM + замороженный поиск + офлайн-верификатор/квартили."""
+    search = FrozenSearch.from_json(ROOT / "eval" / "frozen" / "corpus.json")
     return Deps(
         llm=StubLLM(
             canned={"PICO": DEMO_PICO},
             canned_seq={"Extraction": [e.model_copy() for e in DEMO_EXTRACTIONS]},
         ),
-        search=FrozenSearch.from_json(ROOT / "eval" / "frozen" / "corpus.json"),
+        config=PipelineConfig(plots_dir=str(ROOT / "artifacts")),
+        search=search,
         scimago=ScimagoTable.load(ROOT / "data" / "scimago_quartiles.csv"),
+        verifier=CorpusVerifier(valid_ids={identity_key(s) for s in search.sources}),
     )
 
 
@@ -97,6 +103,8 @@ def main() -> None:
             f"{meta.pooled_point:.2f} (95% CI {meta.pooled_ci_low:.2f}–{meta.pooled_ci_high:.2f}), "
             f"I²={meta.i_squared}%"
         )
+        if meta.forest_plot_path:
+            print(f"Графики: {meta.forest_plot_path} | {meta.funnel_plot_path}")
     print(f"Направление: {report.direction} | Доказательность (GRADE): {report.confidence}")
     print(report.disclaimer)
 

@@ -26,6 +26,9 @@ data/processed/*
 *.safetensors
 *.onnx
 
+# Артефакты прогона (forest/funnel-плоты мета-анализа)
+artifacts/
+
 # ОС / IDE
 .DS_Store
 .idea/
