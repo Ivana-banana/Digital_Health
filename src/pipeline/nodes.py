@@ -97,10 +97,16 @@ async def intake_pico(state: ResearchState, deps: Deps) -> ResearchState:
     return {"pico": pico, "audit": [Event(node="intake_pico")]}
 
 
+# Фильтр типа исследования для мета-пути: без него живой PubMed ловит обзоры/case-report
+# (дизайн unknown, 0 пригодных эффектов). РКИ/клин.испытания → trials с HR в абстракте (plan §6).
+_RCT_FILTER = "(randomized controlled trial[pt] OR clinical trial[pt])"
+
+
 async def plan_queries(state: ResearchState, deps: Deps) -> ResearchState:
-    """Узел 2: построение поискового запроса из PICO (заглушка — один запрос)."""
+    """Узел 2: запрос из PICO (P AND I AND O) + фильтр РКИ. Comparison не сужает выдачу."""
     pico = state.get("pico") or PICO()
-    raw = " AND ".join(p for p in [pico.intervention, pico.outcome] if p) or state["raw_hypothesis"]
+    core = " AND ".join(f"({t})" for t in [pico.population, pico.intervention, pico.outcome] if t)
+    raw = f"{core} AND {_RCT_FILTER}" if core else state["raw_hypothesis"]
     deps.logger.event("plan_queries")
     return {"queries": [Query(source="pubmed", raw=raw)], "audit": [Event(node="plan_queries")]}
 

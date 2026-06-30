@@ -51,6 +51,12 @@ Fact-checker — детерминированный (верификация сс
   «Офлайн-демо / Живые данные» и `python -m src.app.main --live`. Проводка под тестом
   (`tests/test_live_deps.py`, без сети); реальный сетевой прогон — на машине с `.env`+интернетом
   (из CI/песочницы сеть закрыта). Судья-путь (без флага) и тесты остаются офлайн.
+- **Live-retrieval настроен:** `plan_queries` строит запрос из P/I/O + фильтр
+  `randomized controlled trial[pt] OR clinical trial[pt]` (`tests/test_query_planner.py`).
+  Проверено вживую на гипотезе меланома/анти-PD-1/OS: 16 РКИ распознаны, k=4 пригодных HR,
+  пул `random_hksj` HR 0.74 (95% CI 0.42–1.29), GRADE low — **без галлюцинаций** (честный
+  `unavailable` где HR нет в абстракте). Дальше (P5): больше извлекаемости — full-text mining
+  + модель A для дизайна там, где Publication Type молчит.
 - **Деплой/CI:** `Dockerfile.ui`+сервис `ui` в compose (порт 8501); судья-`Dockerfile` чинён
   (COPY `eval/`+`data/` — рантайм их читает); `requirements-ui.txt` (streamlit отдельно, образ
   судьи/CI лёгкие); `eval/run_frozen.py` (frozen-eval-subset: hallucination-rate=0 хард-гейт);
