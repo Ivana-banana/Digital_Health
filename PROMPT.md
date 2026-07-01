@@ -117,23 +117,25 @@ AI Studio `qwen3.6-35b` ~3с).
        субанализом, distinct trials не режем, пустой вход), `test_pubmed.py` (+2: NCT из
        `DataBank` и fallback из абстракта), фикстура `efetch_sample.xml` расширена NCT-блоком.
 
-9. **Live-верификация Cochrane пройдена (01.07.2026):** `python -m eval.run_cochrane` **PASS**.
-   Пул `random_hksj` **HR 0.70 (0.69–0.72), k=4** ≡ Cochrane **HR 0.70 (0.59–0.82), k=4** —
-   точка совпала до сотой; ДИ пересекается. Trial-recall 2/3 (COMBI-d + coBRIM гарантированно;
-   COMBI-v нестабилен между прогонами — LLM-extractor стохастично отдаёт `unavailable`).
-   Направление `favors_intervention`, strength `supported`, 0 галлюцинаций. Дополнительные фиксы
-   по ходу live-верификации — см. HANDOFF.md «P5 precision → Live Cochrane воспроизведён».
+9. **Live-верификация Cochrane пройдена (01.07.2026, стабильно 3 прогона подряд):**
+   `python -m eval.run_cochrane` **PASS**. Пул `random_hksj` **HR 0.70 (0.69–0.71), k=5** ≡
+   Cochrane **HR 0.70 (0.59–0.82), k=4** — точка совпала до сотой; ДИ пересекается.
+   **Trial-recall 3/3**: COMBI-d ✓ (NCT01584648), COMBI-v ✓ (NCT01597908), coBRIM ✓
+   (NCT01689519). Направление `favors_intervention`, strength `supported`, 0 галлюцинаций.
+   Ключевой фикс стабильности COMBI-v — прокинуть `QueryTerms` (drug names из query-expansion)
+   в `SCREEN_SYS`: LLM теперь знает, что «vemurafenib = BRAF-моно», и не режет primary
+   публикацию из-за drug ≠ class. Все фиксы — см. HANDOFF.md «P5 precision → Live Cochrane
+   воспроизведён».
 
 10. **Следующие шаги (порядок по эффекту на питч):**
-    - **Не-код (см. HANDOFF.md «Не-код TODO»):** видео-питч 5–7 мин; сценарий демо (2 кейса:
-      Cochrane-репро + разреженный «недостаточно»); живой деплой UI в Yandex Cloud по `DEPLOY.md`
-      (нужны облачные креды); NCBI API key (10 rps); слайды/нарратив; проверка `.env`+сети на
-      демо-машине; финальный тег.
-    - **Стабильность LLM-extractor на COMBI-v** (если время): улучшить `EXTRACT_SYS` few-shot'ом
-      на стиле абстрактов NEJM/Lancet или собрать несколько прогонов для распределения.
-    - **Позже (если время):** больше Cochrane-кейсов в gold + `eval/run_cochrane.py` по массиву;
-      калибровка GRADE; reasoning-эскалация на Qwen3 235B; расширение `data/trial_acronyms.json`
-      под новые gold-кейсы.
+    - **Второй gold-кейс** («доказательств недостаточно», plan.md §15) — дополняет Cochrane-репро
+      для питча (2 демо-сценария: репро + честный отказ). +1 gold JSON, флаг в `run_cochrane.py`
+      на выбор кейса.
+    - **Не-код (см. HANDOFF.md «Не-код TODO»):** видео-питч 5–7 мин; сценарий демо; живой деплой
+      UI в Yandex Cloud по `DEPLOY.md` (нужны облачные креды); NCBI API key (10 rps); слайды/
+      нарратив; проверка `.env`+сети на демо-машине; финальный тег.
+    - **Позже (если время):** больше Cochrane-кейсов; калибровка GRADE; reasoning-эскалация на
+      Qwen3 235B; расширение `data/trial_acronyms.json` под новые gold-кейсы.
 
 **Работай в ветке `vano`, test-first, после каждого шага гоняй**
 `ruff check . && ruff format --check . && pytest`. Surgical changes — трогай только нужное.

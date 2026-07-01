@@ -20,6 +20,7 @@ from src.domain.schemas import (
     MetaResult,
     PrismaCounts,
     Query,
+    QueryTerms,
     Report,
     ScopingSummary,
     ScreenDecision,
@@ -33,6 +34,10 @@ class ResearchState(TypedDict, total=False):
     raw_hypothesis: str
     pico: PICO | None
     queries: list[Query]
+    # Расширенные термины запроса (drug names для обеих рук + population/outcome). Заполняется
+    # `plan_queries` при `enable_query_expansion`; используется `screen` для доп. контекста LLM
+    # («vemurafenib = BRAF-моно», ловит стохастику скрининга на COMBI-v-подобных).
+    query_terms: QueryTerms | None
     candidates: Annotated[list[Source], identity_dedup_reducer]
     scoping: ScopingSummary | None
     screening: Annotated[list[ScreenDecision], operator.add]

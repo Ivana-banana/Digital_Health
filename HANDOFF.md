@@ -164,28 +164,35 @@ pgvector только для облачного full-text RAG за флагом 
     `tests/test_pubmed.py` (+2: NCT из `DataBank` и fallback из абстракта).
 
 - **Живой Cochrane воспроизведён (сессия 01.07.2026):** `python -m eval.run_cochrane` **PASS**
-  на этой машине. Пул `random_hksj` **HR 0.70 (0.69–0.72), k=4** ≡ Cochrane **HR 0.70 (0.59–0.82),
-  k=4** — точка совпала до сотой; ДИ уже (k=4 HKSJ), пересекается с Cochrane. Trial-recall 2/3
-  (COMBI-d + coBRIM гарантированно в пуле; COMBI-v нестабилен — LLM-extractor может вернуть
-  `unavailable` от прогона к прогону, стохастика). Направление `favors_intervention`, strength
-  `supported`, 0 галлюцинаций. NCT-парсинг: 93/158 кандидатов из PubMed efetch.
+  на этой машине, **стабильно 3 прогона подряд**. Пул `random_hksj` **HR 0.70 (0.69–0.71), k=5**
+  ≡ Cochrane **HR 0.70 (0.59–0.82), k=4** — точка совпала до сотой; ДИ уже (k=5 HKSJ),
+  пересекается с Cochrane. **Trial-recall 3/3**: COMBI-d ✓ (NCT01584648), COMBI-v ✓ (NCT01597908),
+  coBRIM ✓ (NCT01689519). Направление `favors_intervention`, strength `supported`, 0 галлюцинаций.
+  NCT-парсинг: 93/158 кандидатов из PubMed efetch.
 - **Фиксы по ходу live-верификации:**
   - `EXTRACT_SYS` перепис v2 — доверяем LLM-скринингу проверку I-vs-C; extract только достаёт
     ITT-эффект целевого исхода + режет subgroup/implausible. Первая версия (v1) была слишком
     строгой (запрет «interim/exploratory» резал COMBI-d 26037941 — это интерим-OS, включена
     Cochrane).
-  - `_primary_os_score` в `collapse_by_trial` — приоритет **10·(HR+CI в абстракте)** над
-    late-year, чтобы long-term follow-up без HR не побеждал interim с прямым HR.
+  - `EXTRACT_SYS` v3 — few-shot про синонимы «hazard ratio for death» = OS-HR + пример из
+    COMBI-v-стиля (multi-outcome abstract, брать OS-HR, не PFS-HR).
+  - `_primary_os_score` в `collapse_by_trial` v2 — **OS-HR + CI в проксимити** доминирует над
+    просто HR+CI (тот мог быть биомаркер / PFS); тай-брейкер инвертирован на РАННЮЮ публикацию
+    (interim OS обычно и есть та, что в Cochrane).
   - `_merge_two` в `domain/identity.py` — прокинул `nct_id`/`trial_acronym` (регресс: при
     identity-дедупе поля терялись, отчего live-пайплайн видел `nct=None` у всех кандидатов, хотя
     парсер их читал корректно). +1 регресс-тест в `test_identity.py`.
   - `eval/run_cochrane.py` — метрика recall переехала с PMID на **NCT (trial-level)**: разные
     публикации одного РКИ = тот же трайл; Cochrane выбирает свои PMID редакторски, воспроизведение
-    == покрытие ТРАЙЛОВ. Diagnostic вывод «NCT parsed: N/M candidates» для будущей отладки.
-- **Что осталось проверить перед питчем:** стабилизация LLM-extractor'а на COMBI-v (иногда даёт
-  `unavailable` — можно поправить, добавив в prompt пример из Lancet/NEJM-стиля абстракта или
-  повысив temperature-снижение). Или собрать несколько прогонов подряд и показать распределение.
-  На питче достаточно одного успешного прогона с `HR 0.70` == Cochrane.
+    == покрытие ТРАЙЛОВ. Diagnostic вывод «NCT parsed: N/M candidates» для регресс-детекции.
+  - **QueryTerms → SCREEN_SYS (drug-class matching):** `plan_queries` сохраняет `QueryTerms`
+    (LLM-расширение PICO в конкретные drug names) в `state["query_terms"]`; `screen()` доставляет
+    этот список в prompt LLM-скринера. SCREEN_SYS дополнен явным правилом: «если target
+    comparison = 'BRAF inhibitor monotherapy' и в drug list есть 'vemurafenib', то arm с
+    vemurafenib/vemurafenib+placebo — целевой сравнитель». Снимает стохастику на COMBI-v-подобных
+    (LLM больше не режет primary публикацию из-за drug ≠ class).
+- **Осталось (не блокирует питч):** второй gold-кейс «доказательств недостаточно» (plan.md §15,
+  дополняет Cochrane-репро); non-code — видео-питч, слайды, деплой UI в YC.
 
 ## Не-код TODO (помимо кода)
 - **Видео-питч 5–7 мин** — демонстрация живого прогона + Cochrane-репро (killer-аргумент).

@@ -133,24 +133,48 @@ _HR_CI_RE = re.compile(
 _OS_RE = re.compile(r"overall survival|survival was", re.IGNORECASE)
 
 
-def _primary_os_score(s: Source) -> tuple[float, int]:
-    """Эвристика первичной OS-публикации: явный HR+CI доминирует над всем остальным.
+def _has_os_hr_with_ci(text: str) -> bool:
+    """OS-HR с CI в проксимити: HR/CI внутри ~300 символов от упоминания OS/death/mortality.
 
-    Cochrane для пула OS берёт публикацию, где HR+CI есть в абстракте (interim или update —
-    без разницы). Late-year — только тай-брейкер, чтобы long-term follow-up с HR не проигрывал
-    ранним публикациям без HR.
+    Ловит паттерн «overall survival … HR 0.69 (95% CI 0.53–0.89)» и «hazard ratio for death,
+    0.69; 95% CI, 0.53 to 0.89». Разбито на два условия (OS-контекст + отдельно HR+CI в
+    проксимити), потому что regex-alternation с длинной дистанцией плохо матчит.
+    """
+    for m in _OS_RE.finditer(text):
+        window = text[max(0, m.start() - 100) : m.end() + 300]
+        if _HR_CI_RE.search(window):
+            return True
+    # Отдельно: «hazard ratio for death/mortality» — прямая формулировка OS-HR (COMBI-v-стиль).
+    for m in re.finditer(r"hazard ratio for (death|mortality)", text, re.IGNORECASE):
+        window = text[m.start() : m.end() + 300]
+        if _HR_CI_RE.search(window) or re.search(r"95\s*%?\s*CI", window, re.IGNORECASE):
+            return True
+    return False
+
+
+def _primary_os_score(s: Source) -> tuple[float, int]:
+    """Эвристика первичной OS-публикации: доминирует явный **OS-HR с CI** в абстракте.
+
+    OS-HR с CI (proximity к «overall survival» / «death» / «mortality») даёт 20 — доминирует.
+    HR+CI где угодно (без OS-контекста) — 5 (может быть биомаркер / PFS). Так primary OS-report
+    с полным HR+CI бьёт и follow-up без CI, и биомаркерный анализ. Тай-брейкер — РАННЯЯ
+    публикация: interim OS обычно и есть та, что в Cochrane; поздние follow-up без CI проиграют
+    первичной с полным HR+CI даже за счёт year, но при равенстве берём раннюю.
     """
     text = s.abstract or ""
     score = 0.0
-    if _HR_CI_RE.search(text):
-        score += 10.0  # доминирует: без HR+CI публикация в пул не попадёт вовсе
+    if _has_os_hr_with_ci(text):
+        score += 20.0
+    elif _HR_CI_RE.search(text):
+        score += 5.0
     if _OS_RE.search(text):
         score += 2.0
     if s.year is not None:
         score += min(1.0, max(0.0, (s.year - 2000) / 30))
-    # Тай-брейк по PMID (стабильно, детерминированно) — только для равных score.
-    tiebreak = int(s.pmid) if s.pmid and s.pmid.isdigit() else 0
-    return score, tiebreak
+    # Тай-брейк по обратному PMID: при равном score берём РАННЮЮ публикацию (меньший PMID).
+    # `max()` берёт наибольший `tiebreak`; `-pmid` инвертирует, поэтому побеждает `min(pmid)`.
+    pmid_int = int(s.pmid) if s.pmid and s.pmid.isdigit() else 0
+    return score, -pmid_int
 
 
 def collapse_by_trial(sources: list[Source]) -> set[str]:

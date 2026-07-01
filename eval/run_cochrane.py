@@ -155,13 +155,10 @@ def main() -> int:
     deps = build_live_deps(interactive=False)
     final = asyncio.run(run_full(hypothesis, deps))
 
-    # Диагностика NCT-парсинга: если <5% кандидатов имеют NCT — парсер не находит.
+    # Диагностика NCT-парсинга: если 0% кандидатов имеют NCT — парсер сломан (регресс).
     candidates = final.get("candidates", [])
     with_nct = sum(1 for s in candidates if s.nct_id)
     print(f"NCT parsed: {with_nct}/{len(candidates)} candidates")
-    # Первые пять кандидатов с NCT — увидеть какие форматы удачно спарсились
-    for s in [s for s in candidates if s.nct_id][:5]:
-        print(f"  · {s.pmid}: {s.nct_id} ({s.trial_acronym or '—'})")
 
     checks = _checks(final, gold)
     for name, ok, detail in checks:
