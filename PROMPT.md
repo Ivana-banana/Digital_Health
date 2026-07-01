@@ -170,6 +170,14 @@ AI Studio `qwen3.6-35b` ~3с).
      +2). Backward-compat: старая сигнатура работает. Пример: offline demo с HR 0.61
      (CI 0.36-1.02) теперь `low` (было `moderate`) — CI пересекает 1.0 честно понижает.
 
+10g. **Live-сводка по всем gold-кейсам — 3/3 PASS (02.07.2026):** `make eval-live-all` →
+     таблица «кейс | Cochrane | наш live | recall | GRADE | статус» + JSON-экспорт в
+     `eval/artifacts/live_summary.json`.
+     - BRAF+MEK меланома: HR 0.70 ≡ Cochrane 0.70 (точка **буквально совпала**), recall 3/3.
+     - anti-PD-1 NSCLC: HR 0.72 vs Cochrane 0.71 (точка в 0.01), recall 4/4.
+     - sotorasib insufficient: Infeasible (честный отказ).
+     Готовый **питчевый слайд**: «2/2 Cochrane воспроизведены + честный отказ».
+
 11. **Следующие шаги:**
     - **Не-код (см. HANDOFF.md «Не-код TODO»):** видео-питч 5–7 мин; сценарий демо (2 кейса
       готовы); живой деплой UI в Yandex Cloud по `DEPLOY.md` (нужны облачные креды); NCBI API key

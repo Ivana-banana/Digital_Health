@@ -33,6 +33,9 @@ eval-live-2:        ## Live Cochrane-репро (адъювантный трас
 eval-live-3:        ## Live Cochrane-репро (anti-PD-(L)1 в 2L NSCLC vs docetaxel, OS)
 	python -m eval.run_cochrane --case=cochrane_case_03_pd1_nsclc
 
+eval-live-all:      ## Live-сводка по всем gold-кейсам — markdown-таблица для питча (.env)
+	python -m eval.run_all_live
+
 eval-insufficient:  ## Live «доказательств недостаточно» — честный отказ на разреж. кейсе (.env)
 	python -m eval.run_insufficient
 

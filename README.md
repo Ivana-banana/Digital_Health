@@ -38,8 +38,9 @@ Cochrane-обзор**. Это то, что мы защищаем на питче
 cp config/.env.example .env          # вписать YANDEX_API_KEY + YANDEX_FOLDER_ID
 python -m src.app.main --live        # реальные PubMed + AI Studio → отчёт
 make eval-live                       # live Cochrane-репро #1: BRAF+MEK меланома HR 0.70 (killer-факт)
-make eval-live-3                     # live Cochrane-репро #2: anti-PD-(L)1 NSCLC HR 0.74 (генерализация)
+make eval-live-3                     # live Cochrane-репро #2: anti-PD-(L)1 NSCLC HR 0.72 (генерализация)
 make eval-insufficient               # live «доказательств недостаточно»: честный отказ (комплемент)
+make eval-live-all                   # СВОДКА по всем кейсам — markdown-таблица для питча
 # или UI-переключатель «Живые данные» в Streamlit-демо (ниже)
 ```
 

@@ -212,6 +212,24 @@ vs Cochrane 0.71 — точка в 0.03, ДИ пересекается. Напр
 Регресс case 1 (BRAF+MEK) после `sort=relevance`: PASS ещё лучше — **Pool HR 0.70 (0.59–0.83),
 k=6** vs Cochrane 0.70 (0.59–0.82) — точка и ДИ практически идентичны.
 
+### Десятый шаг: сводка по всем gold-кейсам — 3/3 PASS (02.07.2026)
+
+`make eval-live-all` (или `python -m eval.run_all_live`) прогоняет весь массив gold-кейсов
+подряд и печатает markdown-таблицу «кейс | Cochrane | наш live | recall | GRADE | статус».
+Экспорт в `eval/artifacts/live_summary.json` для слайдов/README.
+
+**Результат сегодня:**
+
+| Кейс | Cochrane | Наш live | Recall | GRADE | Статус |
+|---|---|---|---|---|---|
+| BRAF+MEK меланома OS | HR 0.70 (0.59–0.82), k=4 | HR 0.70 (0.59–0.83), k=6 | 3/3 | moderate | PASS |
+| anti-PD-(L)1 NSCLC OS | HR 0.71 (0.64–0.78), k=4 | HR 0.72 (0.67–0.78), k=8 | 4/4 | moderate | PASS |
+| sotorasib insufficient | — | Infeasible | — | — | PASS: честный отказ |
+
+**Case 1: HR 0.70 буквально ≡ Cochrane 0.70** — точка совпала до сотой, ДИ 0.59–0.83
+идентичен Cochrane 0.59–0.82. Готовый **питчевый слайд** — «воспроизвели 2 из 2 Cochrane
++ честный отказ на разреженных».
+
 ### Девятый шаг: live case 1 с новой GRADE — moderate (02.07.2026)
 
 Прогон `make eval-live` после калибровки: PASS. **Pool HR 0.68 (0.62–0.74), k=5** ≡ Cochrane
