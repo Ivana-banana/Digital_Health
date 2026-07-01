@@ -37,6 +37,7 @@ class PipelineConfig:
     enable_query_expansion: bool = (
         False  # LLM-расширение PICO → названия препаратов (live retrieval)
     )
+    enable_trial_collapse: bool = False  # схлопывать публикации одного РКИ до первичной OS
     enable_reasoning_escalation: bool = False  # тяжёлые шаги на Qwen3 235B
     interactive: bool = False  # human-in-the-loop: interrupt() для PICO/scoping (UI; plan §3)
     eval_mode: str = "frozen"  # frozen | live

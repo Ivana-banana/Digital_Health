@@ -37,6 +37,7 @@ Cochrane-обзор**. Это то, что мы защищаем на питче
 ```bash
 cp config/.env.example .env          # вписать YANDEX_API_KEY + YANDEX_FOLDER_ID
 python -m src.app.main --live        # реальные PubMed + AI Studio → отчёт
+make eval-live                       # live Cochrane-бенчмарк: сверка пула с gold (питч)
 # или UI-переключатель «Живые данные» в Streamlit-демо (ниже)
 ```
 

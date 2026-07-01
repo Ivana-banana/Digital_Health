@@ -1,7 +1,7 @@
 # Единый источник правды для проверок. CI вызывает эти же цели — то, что
 # проходит локально (`make ci`), проходит и в пайплайне. Без секретов и сети.
 
-.PHONY: install install-ui lint fmt fmt-check test eval build smoke run ui ci ci-docker
+.PHONY: install install-ui lint fmt fmt-check test eval eval-live build smoke run ui ci ci-docker
 
 install:            ## Установить рантайм- и dev-зависимости
 	pip install -r requirements.txt -r requirements-dev.txt
@@ -23,6 +23,9 @@ test:               ## Юнит-тесты
 
 eval:               ## Frozen-eval-subset — детерминированный quality-gate (plan §10)
 	python -m eval.run_frozen
+
+eval-live:          ## Live Cochrane-бенчмарк — сверка живого пула с gold (нужен .env)
+	python -m eval.run_cochrane
 
 build:              ## Сборка контейнера
 	docker compose build

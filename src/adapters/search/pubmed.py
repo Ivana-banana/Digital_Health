@@ -7,7 +7,10 @@
 
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import dataclass
+from pathlib import Path
 from xml.etree import ElementTree as ET
 
 from src.domain.schemas import Source, StudyDesign
@@ -16,6 +19,14 @@ from src.ports import SearchResult
 
 ESEARCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 EFETCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+
+_NCT_RE = re.compile(r"\bNCT\d{8}\b")
+# Кураторская мапа NCT → acronym: включается trial-collapse'ом; расширяется точечно.
+_ACRONYMS_PATH = Path(__file__).resolve().parents[3] / "data" / "trial_acronyms.json"
+try:
+    _NCT_ACRONYMS: dict[str, str] = json.loads(_ACRONYMS_PATH.read_text(encoding="utf-8"))
+except FileNotFoundError:
+    _NCT_ACRONYMS = {}
 
 # Маппинг Publication Type → дизайн (детерминированная база; модель A уточняет, §7).
 _PT_DESIGN: list[tuple[str, StudyDesign]] = [
@@ -78,11 +89,32 @@ def parse_efetch_xml(xml: str) -> list[Source]:
             elif id_type == "pmc":
                 pmcid = aid.text
 
+        # Trial-level ID: сначала явный ClinicalTrials.gov DataBank в MedlineCitation
+        # (DataBankName — дочерний элемент), затем fallback — regex NCT\d{8} по абстракту.
+        nct_id: str | None = None
+        for db in art.findall(".//DataBankList/DataBank"):
+            name = _text(db.find("DataBankName")) or ""
+            if name.lower() != "clinicaltrials.gov":
+                continue
+            for acc in db.findall(".//AccessionNumber"):
+                if acc.text and _NCT_RE.fullmatch(acc.text.strip()):
+                    nct_id = acc.text.strip().upper()
+                    break
+            if nct_id:
+                break
+        if nct_id is None and abstract:
+            match = _NCT_RE.search(abstract)
+            if match:
+                nct_id = match.group(0).upper()
+        trial_acronym = _NCT_ACRONYMS.get(nct_id) if nct_id else None
+
         sources.append(
             Source(
                 doi=doi,
                 pmid=pmid,
                 pmcid=pmcid,
+                nct_id=nct_id,
+                trial_acronym=trial_acronym,
                 title=title or "",
                 journal=journal,
                 year=year,

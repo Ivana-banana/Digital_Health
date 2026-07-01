@@ -16,6 +16,7 @@
     "comparison": "BRAF inhibitor monotherapy",
     "outcome": "overall survival"
   },
+  "demo_hypothesis": "У пациентов с BRAF V600-мутантной метастатической меланомой комбинация BRAF-ингибитора и MEK-ингибитора улучшает общую выживаемость по сравнению с монотерапией BRAF-ингибитором.",
   "ground_truth": {
     "effect_type": "HR",
     "pooled_point": 0.70,
@@ -27,9 +28,11 @@
     "comparison_label": "BRAF+MEK vs BRAF monotherapy, overall survival"
   },
   "included_pmids": ["26037941", "25399551", "27480103"],
+  "included_ncts": ["NCT01584648", "NCT01597908", "NCT01689519"],
   "per_trial": [
     {
       "trial": "COMBI-d",
+      "nct": "NCT01584648",
       "pmid": "26037941",
       "doi": "10.1016/S0140-6736(15)60898-4",
       "intervention": "dabrafenib + trametinib",
@@ -41,6 +44,7 @@
     },
     {
       "trial": "COMBI-v",
+      "nct": "NCT01597908",
       "pmid": "25399551",
       "doi": "10.1056/NEJMoa1412690",
       "intervention": "dabrafenib + trametinib",
@@ -52,6 +56,7 @@
     },
     {
       "trial": "coBRIM",
+      "nct": "NCT01689519",
       "pmid": "27480103",
       "doi": "10.1016/S1470-2045(16)30122-X",
       "intervention": "vemurafenib + cobimetinib",

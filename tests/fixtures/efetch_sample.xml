@@ -12,6 +12,14 @@
           <AbstractText Label="BACKGROUND">Anti-PD-1 therapy may improve survival.</AbstractText>
           <AbstractText Label="RESULTS">Overall survival HR 0.58 (95% CI 0.44-0.77).</AbstractText>
         </Abstract>
+        <DataBankList>
+          <DataBank>
+            <DataBankName>ClinicalTrials.gov</DataBankName>
+            <AccessionNumberList>
+              <AccessionNumber>NCT01584648</AccessionNumber>
+            </AccessionNumberList>
+          </DataBank>
+        </DataBankList>
         <PublicationTypeList>
           <PublicationType>Randomized Controlled Trial</PublicationType>
           <PublicationType>Journal Article</PublicationType>
@@ -34,7 +42,7 @@
           <JournalIssue><PubDate><Year>2019</Year></PubDate></JournalIssue>
         </Journal>
         <ArticleTitle>A retracted observational study.</ArticleTitle>
-        <Abstract><AbstractText>Observational data only.</AbstractText></Abstract>
+        <Abstract><AbstractText>Observational data only. Registered as NCT99999999.</AbstractText></Abstract>
         <PublicationTypeList>
           <PublicationType>Observational Study</PublicationType>
           <PublicationType>Retracted Publication</PublicationType>

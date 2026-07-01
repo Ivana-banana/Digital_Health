@@ -35,6 +35,23 @@ def test_parse_efetch_extracts_fields():
     assert not a.retracted
 
 
+def test_parse_efetch_extracts_nct_and_acronym():
+    """Trial-level ID: NCT из DataBank + acronym через кураторскую мапу (plan §6.2)."""
+    xml = (FIX / "efetch_sample.xml").read_text(encoding="utf-8")
+    sources = parse_efetch_xml(xml)
+    a = sources[0]
+    assert a.nct_id == "NCT01584648"
+    assert a.trial_acronym == "COMBI-d"
+
+
+def test_parse_efetch_nct_fallback_from_abstract():
+    """Fallback: NCT встречается только в тексте абстракта (нет DataBank-блока)."""
+    xml = (FIX / "efetch_sample.xml").read_text(encoding="utf-8")
+    b = parse_efetch_xml(xml)[1]
+    assert b.nct_id == "NCT99999999"
+    assert b.trial_acronym is None  # неизвестен курованной мапе — ок
+
+
 def test_parse_efetch_flags_retraction():
     xml = (FIX / "efetch_sample.xml").read_text(encoding="utf-8")
     b = parse_efetch_xml(xml)[1]

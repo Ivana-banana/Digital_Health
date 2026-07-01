@@ -18,10 +18,25 @@ Z95 = NormalDist().inv_cdf(0.975)
 
 RATIO_MEASURES = {"HR", "OR", "RR"}
 
+# Правдоподобный диапазон точечной оценки для ratio-мер (HR/OR/RR). Ловит явные мисриды
+# LLM (типа `HR 0.016`, вырванного из другого контекста абстракта); 99% онко-эффектов внутри.
+RATIO_PLAUSIBLE_LOW, RATIO_PLAUSIBLE_HIGH = 0.05, 20.0
+
 
 def is_log_scale(effect_type: str | None) -> bool:
     """Ratio-меры анализируются в лог-пространстве, разностные (MD/SMD) — линейно."""
     return effect_type in RATIO_MEASURES
+
+
+def is_plausible_effect(ex: Extraction) -> bool:
+    """Точечная оценка правдоподобна для меры? Гардрейл против мисридов LLM (plan §9)."""
+    if ex.point is None:
+        return True  # нет числа — фильтруется дальше `poolable` по `se`
+    if not math.isfinite(ex.point):
+        return False
+    if ex.effect_type in RATIO_MEASURES:
+        return RATIO_PLAUSIBLE_LOW <= ex.point <= RATIO_PLAUSIBLE_HIGH
+    return True  # MD/SMD: шкала исхода неизвестна на уровне stats, не режем
 
 
 def se_from_ci(low: float, high: float, *, log_scale: bool) -> float:

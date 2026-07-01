@@ -60,6 +60,8 @@ def _merge_two(a: Source, b: Source) -> Source:
         doi=a.doi or b.doi,
         pmid=a.pmid or b.pmid,
         pmcid=a.pmcid or b.pmcid,
+        nct_id=a.nct_id or b.nct_id,
+        trial_acronym=a.trial_acronym or b.trial_acronym,
         title=a.title or b.title,
         journal=a.journal or b.journal,
         year=a.year or b.year,
@@ -110,3 +112,62 @@ def merge_sources(sources: list[Source]) -> list[Source]:
 def identity_dedup_reducer(existing: list[Source], new: list[Source]) -> list[Source]:
     """LangGraph-reducer: объединяет накопленные и новые источники без двойного счёта."""
     return merge_sources(existing + new)
+
+
+# --- Trial-level identity (plan §6.2): множество публикаций одного РКИ → одна первичная. -----
+
+
+def trial_key(s: Source) -> str | None:
+    """Ключ трайла: NCT (сильный) → acronym (fallback). None — сигнала нет, каждый сам трайл."""
+    if s.nct_id:
+        return f"nct:{s.nct_id.strip().upper()}"
+    if s.trial_acronym:
+        return f"acronym:{s.trial_acronym.strip().lower()}"
+    return None
+
+
+_HR_CI_RE = re.compile(
+    r"(hazard ratio|\bHR\b)[^.]{0,60}?(\(\s*(95\s*%?\s*)?CI|95\s*%\s*CI)",
+    re.IGNORECASE,
+)
+_OS_RE = re.compile(r"overall survival|survival was", re.IGNORECASE)
+
+
+def _primary_os_score(s: Source) -> tuple[float, int]:
+    """Эвристика первичной OS-публикации: явный HR+CI доминирует над всем остальным.
+
+    Cochrane для пула OS берёт публикацию, где HR+CI есть в абстракте (interim или update —
+    без разницы). Late-year — только тай-брейкер, чтобы long-term follow-up с HR не проигрывал
+    ранним публикациям без HR.
+    """
+    text = s.abstract or ""
+    score = 0.0
+    if _HR_CI_RE.search(text):
+        score += 10.0  # доминирует: без HR+CI публикация в пул не попадёт вовсе
+    if _OS_RE.search(text):
+        score += 2.0
+    if s.year is not None:
+        score += min(1.0, max(0.0, (s.year - 2000) / 30))
+    # Тай-брейк по PMID (стабильно, детерминированно) — только для равных score.
+    tiebreak = int(s.pmid) if s.pmid and s.pmid.isdigit() else 0
+    return score, tiebreak
+
+
+def collapse_by_trial(sources: list[Source]) -> set[str]:
+    """Из группы публикаций одного РКИ выбрать первичную OS-публикацию (одну на трайл-ключ).
+
+    Возвращает set `identity_key(source)` победителей. Источники без trial-сигнала
+    пропускаются (каждый — сам себе трайл). Пустой вход → пустой set.
+    """
+    groups: dict[str, list[Source]] = {}
+    winners: set[str] = set()
+    for s in sources:
+        key = trial_key(s)
+        if key is None:
+            winners.add(identity_key(s))
+        else:
+            groups.setdefault(key, []).append(s)
+    for _, group in groups.items():
+        primary = max(group, key=_primary_os_score)
+        winners.add(identity_key(primary))
+    return winners

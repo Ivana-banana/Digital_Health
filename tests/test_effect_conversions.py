@@ -5,6 +5,7 @@ import math
 from src.domain.schemas import Extraction
 from src.stats.effect_conversions import (
     derive_variance,
+    is_plausible_effect,
     or_from_2x2,
     rr_from_2x2,
     se_from_ci,
@@ -75,3 +76,33 @@ def test_reported_se_preserved():
     out = derive_variance(ex)
     assert out.variance_source == "reported_se"
     assert out.se == 0.2
+
+
+# --- Гардрейл правдоподобия точечной оценки (plan §9) ---
+
+
+def test_is_plausible_effect_ratio_ok():
+    for p in (0.05, 0.5, 1.0, 2.0, 20.0):
+        assert is_plausible_effect(Extraction(source_id="x", effect_type="HR", point=p))
+
+
+def test_is_plausible_effect_ratio_rejects_out_of_band():
+    # Реальный мисрид live-прогона: `HR 0.016` — резать. Симметрично, HR=25 — резать.
+    assert not is_plausible_effect(Extraction(source_id="x", effect_type="HR", point=0.016))
+    assert not is_plausible_effect(Extraction(source_id="x", effect_type="OR", point=25.0))
+
+
+def test_is_plausible_effect_none_point_passes():
+    # Нет числа — не наше дело; отфильтруется дальше по `se`.
+    assert is_plausible_effect(Extraction(source_id="x", effect_type="HR", point=None))
+
+
+def test_is_plausible_effect_md_smd_not_gated():
+    # Разностные меры — шкала исхода неизвестна на уровне stats, не режем.
+    assert is_plausible_effect(Extraction(source_id="x", effect_type="MD", point=10.0))
+    assert is_plausible_effect(Extraction(source_id="x", effect_type="SMD", point=-3.0))
+
+
+def test_is_plausible_effect_rejects_nonfinite():
+    assert not is_plausible_effect(Extraction(source_id="x", effect_type="HR", point=math.inf))
+    assert not is_plausible_effect(Extraction(source_id="x", effect_type="HR", point=math.nan))

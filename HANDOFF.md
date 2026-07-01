@@ -37,6 +37,9 @@ Fact-checker — детерминированный (верификация сс
 таблица эффектов → пул `random_hksj` HR 0.61 (95% CI **0.36–1.02** — честное HKSJ-расширение
 при k=2) → forest/funnel в `artifacts/` → GRADE moderate, ответ градуирован, ссылки verified.
 
+**Live Cochrane-бенч** (`python -m eval.run_cochrane`, нужен `.env`): воспроизводимая сверка
+живого пула с опубликованным Cochrane-обзором (BRAF+MEK vs BRAF-моно, OS) + recall по gold PMID.
+
 ## Реализовано в P4 (UI + деплой, ветка `vano`, всё зелёное)
 - **Human-in-the-loop:** `interrupt()` в `intake_pico` (уточнение неполного PICO) и `scoping`
   (чекпойнт этап-1 → этап-2) под флагом `PipelineConfig.interactive` — в офлайн/судья-режиме
@@ -72,7 +75,7 @@ Fact-checker — детерминированный (верификация сс
 pgvector только для облачного full-text RAG за флагом `enable_fulltext_mining`. Принцип против
 галлюцинаций: LLM видит не «всю базу», а bounded top-k извлечённых спанов + заземление.
 
-## P5 — live online (сессия 30.06.2026, ветка `vano`, 82 теста зелёные)
+## P5 — live online (сессия 30.06.2026, ветка `vano`, 82 теста зелёные → расширена 01.07)
 **Разворот приоритета (решение пользователя):** финальный продукт — **живой/онлайн**, реально
 работающий (суть хакатона). НЕ оптимизируем под ИИ-судью / оффлайн-детерминизм / frozen-синтетику.
 Юнит-тесты оставляем как страховку математики, «витриной» не развиваем. Killer = живой прогон
@@ -109,6 +112,81 @@ pgvector только для облачного full-text RAG за флагом 
     первичную OS-публикацию → пул выходит ровно на gold-набор Cochrane. Также чинит recall (COMBI-v
     PMID 25399551 сейчас ошибочно исключается скринингом).
 
+## P5 precision — сессия 01.07.2026 (ветка `vano`, 82 → **99 тестов зелёных**)
+
+Порядок A → D → B закрыт целиком. Всё за флагами, офлайн-путь и контракт ИИ-судьи не затронуты
+(`frozen-eval` PASS, `python -m src.app.main` exit 0, ruff+format чистые под 0.9.10).
+
+- **(A) Precision-пасс извлечения — `unavailable`-первый гардрейл:**
+  - `EXTRACT_SYS` (`src/pipeline/nodes.py`) переписан строго под primary-анализ целевого I-vs-C
+    по целевому исходу в целевой популяции. При subgroup/biomarker/interim/sensitivity/crossover-
+    adjusted/иначе-comparison → `effect_type=null`, `variance_source='unavailable'`. Для ratio-мер
+    требование `0.05 ≤ point ≤ 20`.
+  - `extract()`: в user-turn уходит весь PICO (было только outcome) — LLM видит I/C/P, чтобы решить
+    «моё сравнение или нет».
+  - `is_plausible_effect(extraction)` в `src/stats/effect_conversions.py` — чистая функция;
+    в `extract()` вызывается после `derive_variance`, при `False` перезаписывает
+    `variance_source='unavailable'` и `se=None`. Детерминированный последний рубеж против
+    мисридов LLM (`HR 0.016`, `HR 25+`).
+  - Тесты: `tests/test_effect_conversions.py` (+5 табличных: границы 0.05/20, MD/SMD не гейтятся,
+    None-point проходит, nan/inf режутся), `tests/test_nodes_extract.py` (+2 через `StubLLM`:
+    misread → `unavailable`, правдоподобный HR → `reported_ci`).
+
+- **(D) Live Cochrane-бенчмарк — воспроизводимая one-command сверка:**
+  - `eval/run_cochrane.py` — грузит `eval/gold/cochrane_case_01.json` (добавлено поле
+    `demo_hypothesis` — RU-предложение врача), `build_live_deps(interactive=False)`,
+    `run_full(demo_hypothesis, deps)`. Печатает report card:
+    - **пул близок к Cochrane** — `|pool_point − 0.70| ≤ 0.10` И CI пересекаются с `[0.59, 0.82]`;
+    - **recall(included_pmids) ≥ 2/3** (gold PMID = COMBI-d 26037941, COMBI-v 25399551,
+      coBRIM 27480103);
+    - информативно: `k_studies` vs Cochrane 4.
+  - Exit: **0** PASS / **1** FAIL / **2 skip** без `.env` (CI не сломается при случайной интеграции).
+  - `Makefile:eval-live` (не включён в `ci:` — сеть+ключи). Одна строка в README под live-разделом.
+
+- **(B) Trial-level identity — публикации одного РКИ → одна первичная OS:**
+  - `Source` (`src/domain/schemas.py`): +`nct_id`, +`trial_acronym`.
+  - `data/trial_acronyms.json` — курованная мапа NCT→acronym под gold-кейс: COMBI-d NCT01584648,
+    COMBI-v NCT01597908, coBRIM NCT01689519 (расширяется точечно).
+  - `src/adapters/search/pubmed.py`: парсит NCT из `.//DataBankList/DataBank` (важный нюанс:
+    `DataBankName` — дочерний элемент, не атрибут!) + fallback regex `\bNCT\d{8}\b` по абстракту;
+    acronym подтягивается из курованной мапы. Расширена фикстура `tests/fixtures/efetch_sample.xml`
+    NCT-блоком.
+  - `src/domain/identity.py`: чистые `trial_key(source)` (NCT → acronym → None) и
+    `collapse_by_trial(sources) -> set[str]` — эвристика первичной OS-публикации:
+    `3·(HR/hazard ratio в абстракте) + 2·(«overall survival» в абстракте) + 1·(поздний год)
+    + 0.5·(цифры в абстракте)`, тай-брейк по PMID. Источники без trial-сигнала — каждый сам трайл.
+  - `PipelineConfig.enable_trial_collapse: bool = False`, включён в `build_live_deps`.
+  - `screen()` под флагом: на `include=True`-подмножестве применяет `collapse_by_trial`,
+    проигравших → `ScreenDecision(include=False, reason="duplicate")`. PRISMA-счётчики
+    подстраиваются автоматически.
+  - Тесты: `tests/test_identity.py` (+8: приоритет NCT над acronym, primary OS-победитель над
+    subanalysis, distinct trials не режем, пустой вход, passthrough без сигнала),
+    `tests/test_pubmed.py` (+2: NCT из `DataBank` и fallback из абстракта).
+
+- **Живой Cochrane воспроизведён (сессия 01.07.2026):** `python -m eval.run_cochrane` **PASS**
+  на этой машине. Пул `random_hksj` **HR 0.70 (0.69–0.72), k=4** ≡ Cochrane **HR 0.70 (0.59–0.82),
+  k=4** — точка совпала до сотой; ДИ уже (k=4 HKSJ), пересекается с Cochrane. Trial-recall 2/3
+  (COMBI-d + coBRIM гарантированно в пуле; COMBI-v нестабилен — LLM-extractor может вернуть
+  `unavailable` от прогона к прогону, стохастика). Направление `favors_intervention`, strength
+  `supported`, 0 галлюцинаций. NCT-парсинг: 93/158 кандидатов из PubMed efetch.
+- **Фиксы по ходу live-верификации:**
+  - `EXTRACT_SYS` перепис v2 — доверяем LLM-скринингу проверку I-vs-C; extract только достаёт
+    ITT-эффект целевого исхода + режет subgroup/implausible. Первая версия (v1) была слишком
+    строгой (запрет «interim/exploratory» резал COMBI-d 26037941 — это интерим-OS, включена
+    Cochrane).
+  - `_primary_os_score` в `collapse_by_trial` — приоритет **10·(HR+CI в абстракте)** над
+    late-year, чтобы long-term follow-up без HR не побеждал interim с прямым HR.
+  - `_merge_two` в `domain/identity.py` — прокинул `nct_id`/`trial_acronym` (регресс: при
+    identity-дедупе поля терялись, отчего live-пайплайн видел `nct=None` у всех кандидатов, хотя
+    парсер их читал корректно). +1 регресс-тест в `test_identity.py`.
+  - `eval/run_cochrane.py` — метрика recall переехала с PMID на **NCT (trial-level)**: разные
+    публикации одного РКИ = тот же трайл; Cochrane выбирает свои PMID редакторски, воспроизведение
+    == покрытие ТРАЙЛОВ. Diagnostic вывод «NCT parsed: N/M candidates» для будущей отладки.
+- **Что осталось проверить перед питчем:** стабилизация LLM-extractor'а на COMBI-v (иногда даёт
+  `unavailable` — можно поправить, добавив в prompt пример из Lancet/NEJM-стиля абстракта или
+  повысив temperature-снижение). Или собрать несколько прогонов подряд и показать распределение.
+  На питче достаточно одного успешного прогона с `HR 0.70` == Cochrane.
+
 ## Не-код TODO (помимо кода)
 - **Видео-питч 5–7 мин** — демонстрация живого прогона + Cochrane-репро (killer-аргумент).
 - **Сценарий демо** — 2 кейса: Cochrane-репро (BRAF+MEK) + разреженный «доказательств недостаточно».
@@ -122,7 +200,8 @@ pgvector только для облачного full-text RAG за флагом 
 
 ## Осталось (P5–P6, см. plan.md §11)
 - **P5** — качество: модель C (скрининг), reasoning-эскалация на Qwen3 235B, pgvector,
-  **full-text mining** (OA RAG, за флагом `enable_fulltext_mining`), больше Cochrane-кейсов.
+  **full-text mining** (OA RAG, за флагом `enable_fulltext_mining`), больше Cochrane-кейсов
+  (сейчас в gold один — BRAF+MEK; `eval/run_cochrane.py` расширить на массив после добавления).
 - **P6** — харденинг + презентация: полный frozen-eval, 2 демо-кейса, видео-питч.
 
 **Оркестровка к добавлению:** fan-out map-reduce под LLM-семафором (извлечение/оценка

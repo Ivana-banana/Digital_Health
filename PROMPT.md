@@ -25,11 +25,12 @@ AI Studio `qwen3.6-35b` ~3с).
    §12 деплой) и `CLAUDE.md` (правила: Simplicity First, хирургические правки, test-first,
    явные assumptions, push back если есть проще).
 
-2. **Подними окружение:** `.venv` уже есть → используй `.venv/Scripts/python.exe`. Проверь, что
-   база зелёная:
-   - `ruff check . && ruff format --check . && pytest` → **73 теста зелёных**;
+2. **Подними окружение:** `.venv` уже есть → на Windows `.venv/Scripts/python.exe`, на Linux
+   `.venv/bin/python` (проверено — работает). Проверь, что база зелёная:
+   - `ruff check . && ruff format --check . && pytest` → **100 тестов зелёных**;
    - `python -m eval.run_frozen` → frozen-eval **PASS, exit 0** (хард-гейт hallucination-rate=0);
    - `python -m src.app.main` → «Solution started» + ход анализа, **exit 0** (контракт ИИ-судьи);
+   - `python -m eval.run_cochrane` → live Cochrane-бенч (нужен `.env`; без `.env` — exit 2 skip);
    - UI: `make install-ui` затем `streamlit run src/app/ui.py` (офлайн-демо без ключей).
 
 3. **Конвенции (ВАЖНО):** внутри пайплайна модели общаются на **английском**, отчёт и общение
@@ -81,22 +82,58 @@ AI Studio `qwen3.6-35b` ~3с).
    - **Live-результат:** пул `random_hksj` HR **0.74 (0.51–1.07)** — согласуется с Cochrane 0.70,
      0 галлюцинаций. НО precision неидеальна (см. ниже).
 
-8. **Следующие шаги (порядок A → D → B; время на B будет):**
-   - **(A) Precision-пасс извлечения:** сузить `EXTRACT_SYS` строго до целевого сравнения I-vs-C +
-     гардрейл правдоподобия эффекта (резать мисриды типа `HR 0.016` и субанализы). Сейчас в пул
-     попадают «соседние» анализы (0.73 биомаркерный, 0.81) вместо gold-трайлов.
-   - **(D) Воспроизводимый живой бенчмарк** `eval/run_cochrane.py`: гоняет live-пайплайн на gold-
-     PICO и печатает сверку пула с Cochrane (для питча) + recall по `included_pmids`.
-   - **(B) Trial-level identity** *(главная цель качества, время будет)*: схлопывать множество
-     публикаций одного РКИ → брать первичную OS-публикацию. Это выводит пул ровно на gold-набор
-     Cochrane (3 трайла). Сейчас этого нет → контаминация субанализами. Также чинит recall
-     (COMBI-v PMID 25399551 сейчас ошибочно исключается скринингом).
-   - Позже: больше Cochrane-кейсов в gold; калибровка GRADE; reasoning-эскалация на Qwen3 235B.
+8. **Сделано в сессии 01.07.2026 (P5 precision, ветка `vano`, 82 → 99 тестов зелёные):**
+   Порядок A → D → B из предыдущей сессии закрыт целиком; всё за флагами, офлайн-путь и контракт
+   ИИ-судьи не затронуты (frozen-eval PASS, `main` exit 0, UP-совместимо с ruff 0.9.10).
+   - **(A) Precision-пасс извлечения:** `EXTRACT_SYS` (`src/pipeline/nodes.py`) переписан строго
+     под целевое I-vs-C по целевому исходу в целевой популяции — при subgroup/biomarker/interim/
+     sensitivity/crossover-adjusted/иначе-comparison → `effect_type=null`,
+     `variance_source='unavailable'`. В `extract()` весь PICO уходит в user-turn (было только
+     outcome). Детерминированный последний рубеж: `is_plausible_effect` в
+     `src/stats/effect_conversions.py` — для HR/OR/RR требует `0.05 ≤ point ≤ 20`, режет мисриды
+     `HR 0.016` и т.п. в `unavailable` (MD/SMD не гейтит). Тесты: `test_effect_conversions.py`
+     (+5 табличных), `test_nodes_extract.py` (+2 через `StubLLM`).
+   - **(D) Live Cochrane-бенчмарк:** `eval/run_cochrane.py` — воспроизводимый one-command
+     (`make eval-live` или `python -m eval.run_cochrane`). Гоняет `build_live_deps` +
+     `run_full(demo_hypothesis, deps)` на gold-PICO и печатает report card: «пул близок к
+     Cochrane 0.70 (0.59–0.82)» (allow ±0.10 и CI-overlap) + `recall(included_pmids) ≥ 2/3`
+     (gold=3). Exit 0 PASS / 1 FAIL / **2 skip** без `.env` (CI не сломается). В gold добавлен
+     `demo_hypothesis` (RU-предложение врача). `Makefile:eval-live` (не в `ci:`). Одна строка в
+     README под live-разделом.
+   - **(B) Trial-level identity:** множество публикаций одного РКИ → одна первичная OS-публикация.
+     - `Source` (`src/domain/schemas.py`): +`nct_id`, +`trial_acronym`.
+     - `src/adapters/search/pubmed.py`: парсит NCT из `DataBankList/DataBank` (`DataBankName` —
+       дочерний элемент, не атрибут!) + fallback regex `\bNCT\d{8}\b` по абстракту; acronym
+       подтягивается из `data/trial_acronyms.json` (курованная мапа: COMBI-d NCT01584648,
+       COMBI-v NCT01597908, coBRIM NCT01689519).
+     - `src/domain/identity.py`: чистые `trial_key(source)` (NCT → acronym → None) и
+       `collapse_by_trial(sources)` — эвристика первичной OS: `3·(HR в абстракте) + 2·(«overall
+       survival») + 1·(поздний год) + 0.5·(цифры/n)`, тай-брейк по PMID; возвращает set
+       `identity_key` победителей.
+     - `PipelineConfig.enable_trial_collapse: bool = False`, включён в `build_live_deps`.
+     - `screen()` под флагом: на `include=True`-подмножестве применить `collapse_by_trial`,
+       проигравших → `include=False, reason="duplicate"` (PRISMA автоматически подстраивается).
+     - Тесты: `test_identity.py` (+8: NCT/acronym-приоритеты, primary OS-победитель над
+       субанализом, distinct trials не режем, пустой вход), `test_pubmed.py` (+2: NCT из
+       `DataBank` и fallback из абстракта), фикстура `efetch_sample.xml` расширена NCT-блоком.
 
-9. **Осталось НЕ кодом (см. HANDOFF.md «Не-код TODO»):** видео-питч 5–7 мин; сценарий демо
-   (2 кейса: Cochrane-репро + разреженный «недостаточно»); живой деплой UI в Yandex Cloud по
-   `DEPLOY.md` (нужны облачные креды); NCBI API key (10 rps); слайды/нарратив; проверка `.env`+
-   сети на демо-машине; финальный тег.
+9. **Live-верификация Cochrane пройдена (01.07.2026):** `python -m eval.run_cochrane` **PASS**.
+   Пул `random_hksj` **HR 0.70 (0.69–0.72), k=4** ≡ Cochrane **HR 0.70 (0.59–0.82), k=4** —
+   точка совпала до сотой; ДИ пересекается. Trial-recall 2/3 (COMBI-d + coBRIM гарантированно;
+   COMBI-v нестабилен между прогонами — LLM-extractor стохастично отдаёт `unavailable`).
+   Направление `favors_intervention`, strength `supported`, 0 галлюцинаций. Дополнительные фиксы
+   по ходу live-верификации — см. HANDOFF.md «P5 precision → Live Cochrane воспроизведён».
+
+10. **Следующие шаги (порядок по эффекту на питч):**
+    - **Не-код (см. HANDOFF.md «Не-код TODO»):** видео-питч 5–7 мин; сценарий демо (2 кейса:
+      Cochrane-репро + разреженный «недостаточно»); живой деплой UI в Yandex Cloud по `DEPLOY.md`
+      (нужны облачные креды); NCBI API key (10 rps); слайды/нарратив; проверка `.env`+сети на
+      демо-машине; финальный тег.
+    - **Стабильность LLM-extractor на COMBI-v** (если время): улучшить `EXTRACT_SYS` few-shot'ом
+      на стиле абстрактов NEJM/Lancet или собрать несколько прогонов для распределения.
+    - **Позже (если время):** больше Cochrane-кейсов в gold + `eval/run_cochrane.py` по массиву;
+      калибровка GRADE; reasoning-эскалация на Qwen3 235B; расширение `data/trial_acronyms.json`
+      под новые gold-кейсы.
 
 **Работай в ветке `vano`, test-first, после каждого шага гоняй**
 `ruff check . && ruff format --check . && pytest`. Surgical changes — трогай только нужное.

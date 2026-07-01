@@ -111,6 +111,10 @@ class Source(BaseModel):
     doi: str | None = None
     pmid: str | None = None
     pmcid: str | None = None
+    # Trial-level ID (ClinicalTrials.gov) + акроним трайла — питают `collapse_by_trial`:
+    # схлопнуть множество публикаций одного РКИ до одной первичной OS-публикации (plan §6.2).
+    nct_id: str | None = None
+    trial_acronym: str | None = None
     title: str = ""
     journal: str | None = None
     year: int | None = None
