@@ -212,6 +212,16 @@ vs Cochrane 0.71 — точка в 0.03, ДИ пересекается. Напр
 Регресс case 1 (BRAF+MEK) после `sort=relevance`: PASS ещё лучше — **Pool HR 0.70 (0.59–0.83),
 k=6** vs Cochrane 0.70 (0.59–0.82) — точка и ДИ практически идентичны.
 
+### Девятый шаг: live case 1 с новой GRADE — moderate (02.07.2026)
+
+Прогон `make eval-live` после калибровки: PASS. **Pool HR 0.68 (0.62–0.74), k=5** ≡ Cochrane
+HR 0.70 (0.59–0.82) — точка в 0.02, trial-recall 3/3. **GRADE = moderate** (Cochrane = high)
+— честное `high − 1` за `abstract_only` (indirectness / low-quality source). Cochrane имеет
+full-text доступ, они не понижают. **Наша система честно оценивает свои ограничения** —
+плюс для питча по крит. 7 (снижение рисков LLM).
+
+Bench показывает GRADE в report card: `информативно: GRADE vs Cochrane high — наш GRADE=moderate`.
+
 ### Восьмой шаг: GRADE калибровка по Cochrane-гайдлайнам (02.07.2026)
 
 Cochrane-подобная калибровка `grade_level()` (plan §8, GRADE Handbook 2013):

@@ -116,6 +116,7 @@ def _checks(final: dict, gold: dict) -> list[tuple[str, bool, str]]:
 
     pool_str = f"HR {pool_point:.2f} ({pool_lo:.2f}–{pool_hi:.2f}), k={k}" if is_meta else "no meta"
     cochrane_str = f"{gt['pooled_point']} ({gt['pooled_ci_low']}–{gt['pooled_ci_high']})"
+    grade_str = meta.grade if is_meta else "—"
 
     def _funnel(hits: set[str]) -> str:
         return f"{len(hits)}/{n_gold} — {sorted(hits) or '∅'}"
@@ -131,6 +132,11 @@ def _checks(final: dict, gold: dict) -> list[tuple[str, bool, str]]:
         ),
         (f"пул близок к Cochrane {cochrane_str}", proximity_ok, pool_str),
         ("информативно: k_studies vs Cochrane 4", True, f"k={k}"),
+        (
+            f"информативно: GRADE vs Cochrane {gt['evidence_grade']}",
+            True,
+            f"наш GRADE={grade_str}",
+        ),
     ]
 
 
