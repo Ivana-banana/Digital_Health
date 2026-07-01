@@ -212,6 +212,17 @@ vs Cochrane 0.71 — точка в 0.03, ДИ пересекается. Напр
 Регресс case 1 (BRAF+MEK) после `sort=relevance`: PASS ещё лучше — **Pool HR 0.70 (0.59–0.83),
 k=6** vs Cochrane 0.70 (0.59–0.82) — точка и ДИ практически идентичны.
 
+### Пятый шаг: UI smoke + docker готовность (02.07.2026)
+
+- **`tests/test_ui_smoke.py`** — Streamlit AppTest headless-регрессы UI-пути (2 теста):
+  офлайн-поток гипотеза → scoping-чекпойнт → resume → отчёт с направлением/GRADE; чистый
+  старт без исключений. Skip через `pytest.importorskip('streamlit')` для CI/судья без UI-зависимостей.
+- **Docker UI-образ** (`docker compose build ui`): собран без ошибок → `ai-v-massy-ui:latest`.
+  Контейнер стартует, `GET /` → HTTP 200, `/_stcore/health` → 200. Артефакт готов к YC-деплою
+  (Serverless Container / Compute VM), команды в DEPLOY.md.
+
+**102 теста зелёные** (было 100 + 2 UI-smoke).
+
 ### Четвёртый демо-кейс: «доказательств недостаточно» — sotorasib vs docetaxel (PASS)
 
 `eval/gold/case_02_insufficient.json` (`status: ready`) + `eval/run_insufficient.py` + `make
