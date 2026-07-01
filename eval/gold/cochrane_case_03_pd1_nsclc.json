@@ -1,0 +1,78 @@
+{
+  "case_id": "cochrane_case_03_pd1_nsclc",
+  "status": "ready",
+  "note": "Второй Cochrane-репро (замена трастузумаба): anti-PD-(L)1 vs доцетаксель в 2L previously-treated advanced NSCLC, overall survival. В отличие от трастузумаба HER2+ EBC, абстракты pivotal-РКИ (CheckMate 017/057, KEYNOTE-010, OAK) явно сообщают OS-HR с CI — совместимо с нашим extract-без-full-text. Ground truth = fixed-effect inverse-variance пул 4 pivotal-РКИ через src/stats/meta: HR ≈ 0.71 (0.64–0.78). Тема сильно освещена в meta-analyses (Passiglia 2018 Ann Oncol и др.), Cochrane обзор Peron 2021.",
+  "source_review": {
+    "title": "Immune checkpoint inhibitors vs docetaxel in previously treated advanced NSCLC (multi-source): manual pool of pivotal RCTs matched to Cochrane/systematic reviews",
+    "authors": "manual pool (see per_trial); consistent с Passiglia 2018, Peron 2021 SR",
+    "note": "Cochrane review Peron 2021 covers anti-PD-1/PD-L1 в NSCLC; переиспользуем pivotal RCT-набор."
+  },
+  "pico": {
+    "population": "previously treated advanced or metastatic non-small-cell lung cancer",
+    "intervention": "anti-PD-1 or anti-PD-L1 monoclonal antibody",
+    "comparison": "docetaxel",
+    "outcome": "overall survival"
+  },
+  "demo_hypothesis": "У пациентов с распространённым или метастатическим немелкоклеточным раком лёгкого, получавших предшествующую системную терапию, ингибиторы PD-1/PD-L1 улучшают общую выживаемость по сравнению с доцетакселем.",
+  "ground_truth": {
+    "effect_type": "HR",
+    "pooled_point": 0.71,
+    "pooled_ci_low": 0.64,
+    "pooled_ci_high": 0.78,
+    "n_studies_cochrane": 4,
+    "evidence_grade": "high",
+    "comparison_label": "anti-PD-(L)1 vs docetaxel, OS in previously treated NSCLC"
+  },
+  "included_pmids": ["26028407", "26412456", "26712084", "27979383"],
+  "included_ncts": ["NCT01642004", "NCT01673867", "NCT01905657", "NCT02008227"],
+  "per_trial": [
+    {
+      "trial": "CheckMate 017",
+      "nct": "NCT01642004",
+      "pmid": "26028407",
+      "doi": "10.1056/NEJMoa1504627",
+      "intervention": "nivolumab",
+      "comparison": "docetaxel",
+      "os_hr": 0.59,
+      "os_ci_low": 0.44,
+      "os_ci_high": 0.79,
+      "abstract_span": "OS was significantly longer with nivolumab than with docetaxel (hazard ratio for death, 0.59; 95% CI, 0.44 to 0.79; P<0.001)."
+    },
+    {
+      "trial": "CheckMate 057",
+      "nct": "NCT01673867",
+      "pmid": "26412456",
+      "doi": "10.1056/NEJMoa1507643",
+      "intervention": "nivolumab",
+      "comparison": "docetaxel",
+      "os_hr": 0.73,
+      "os_ci_low": 0.59,
+      "os_ci_high": 0.89,
+      "abstract_span": "OS was significantly longer with nivolumab than with docetaxel (hazard ratio for death, 0.73; 95% CI, 0.59 to 0.89; P=0.002)."
+    },
+    {
+      "trial": "KEYNOTE-010",
+      "nct": "NCT01905657",
+      "pmid": "26712084",
+      "doi": "10.1016/S0140-6736(15)01281-7",
+      "intervention": "pembrolizumab",
+      "comparison": "docetaxel",
+      "os_hr": 0.71,
+      "os_ci_low": 0.58,
+      "os_ci_high": 0.88,
+      "abstract_span": "pembrolizumab (2 mg/kg) versus docetaxel (HR 0.71, 95% CI 0.58-0.88; p=0.0008)."
+    },
+    {
+      "trial": "OAK",
+      "nct": "NCT02008227",
+      "pmid": "27979383",
+      "doi": "10.1016/S0140-6736(16)32517-X",
+      "intervention": "atezolizumab",
+      "comparison": "docetaxel",
+      "os_hr": 0.73,
+      "os_ci_low": 0.62,
+      "os_ci_high": 0.87,
+      "abstract_span": "atezolizumab significantly prolonged OS versus docetaxel (HR 0.73, 95% CI 0.62-0.87; p=0.0003)."
+    }
+  ]
+}

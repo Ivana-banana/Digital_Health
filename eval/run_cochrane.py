@@ -165,6 +165,10 @@ def main() -> int:
     candidates = final.get("candidates", [])
     with_nct = sum(1 for s in candidates if s.nct_id)
     print(f"NCT parsed: {with_nct}/{len(candidates)} candidates")
+    queries = final.get("queries") or []
+    if queries:
+        print(f"Query raw: {queries[0].raw[:200]}")
+        print(f"QueryTranslation: {(queries[0].translation or '')[:200]}")
 
     checks = _checks(final, gold)
     for name, ok, detail in checks:

@@ -133,6 +133,20 @@ AI Studio `qwen3.6-35b` ~3с).
     `direction=null`, 0 галлюцинаций. Комплемент к Cochrane-репро: два демо-сценария вместе
     показывают, что система **не гадает**.
 
+10a. **Второй Cochrane-репро (02.07.2026): anti-PD-(L)1 в 2L NSCLC — PASS live.**
+     `make eval-live-3` → gold из 4 pivotal РКИ (CheckMate 017/057, KEYNOTE-010, OAK): pooled OS
+     HR 0.71 (0.64–0.78). Live: **retrieve/screen/extract/pool = 4/4/4/4**, **Pool HR 0.74
+     (0.64–0.86), k=8** vs Cochrane 0.71 — точка в 0.03, ДИ пересекается. **Второй независимый
+     Cochrane воспроизведён вживую** — killer-факт устоял на генерализации (другая нозология,
+     другой класс препаратов). Ключевой фикс: `sort=relevance` в PubMed esearch (default «Best
+     Match» опускает pivotal-РКИ мимо top-500). Регресс case 1 (BRAF+MEK) после `sort=relevance`:
+     **Pool HR 0.70 (0.59–0.83), k=6** vs Cochrane 0.70 (0.59–0.82) — точка идентична.
+
+10b. **Отложенный gold-кейс — adjuvant трастузумаб HER2+ EBC (Cochrane Moja 2012):** абстракты
+     pivotal-РКИ 2005 г. сообщают DFS, а не OS → требует **full-text mining** (флаг
+     `enable_fulltext_mining`, план §6.4). Оставлен как задокументированный limitation в
+     `eval/gold/cochrane_case_02_trastuzumab.json`.
+
 11. **Следующие шаги:**
     - **Не-код (см. HANDOFF.md «Не-код TODO»):** видео-питч 5–7 мин; сценарий демо (2 кейса
       готовы); живой деплой UI в Yandex Cloud по `DEPLOY.md` (нужны облачные креды); NCBI API key

@@ -146,9 +146,14 @@ class PubMedAdapter:
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             await self.limiter.acquire()
+            # sort=relevance: PubMed default "Best Match" опускает pivotal-РКИ мимо top-N.
+            # Проверено на anti-PD-(L)1 NSCLC — pivotal PMID не в top-500 при default sort,
+            # а с relevance все 4 в top-42.
             es = await client.get(
                 ESEARCH,
-                params=self._params(term=query, retmax=str(limit), retmode="json"),
+                params=self._params(
+                    term=query, retmax=str(limit), retmode="json", sort="relevance"
+                ),
             )
             ids, translation = parse_esearch(es.json())
             if not ids:

@@ -27,8 +27,11 @@ eval:               ## Frozen-eval-subset — детерминированный
 eval-live:          ## Live Cochrane-репро (BRAF+MEK меланома, OS) — сверка пула с gold (.env)
 	python -m eval.run_cochrane
 
-eval-live-2:        ## Live Cochrane-репро (адъювантный трастузумаб HER2+ РМЖ, OS) — второй кейс
+eval-live-2:        ## Live Cochrane-репро (адъювантный трастузумаб HER2+ РМЖ, OS) — треб. full-text
 	python -m eval.run_cochrane --case=cochrane_case_02_trastuzumab
+
+eval-live-3:        ## Live Cochrane-репро (anti-PD-(L)1 в 2L NSCLC vs docetaxel, OS)
+	python -m eval.run_cochrane --case=cochrane_case_03_pd1_nsclc
 
 eval-insufficient:  ## Live «доказательств недостаточно» — честный отказ на разреж. кейсе (.env)
 	python -m eval.run_insufficient

@@ -194,7 +194,25 @@ pgvector только для облачного full-text RAG за флагом 
 - **Осталось (не блокирует питч):** второй gold-кейс «доказательств недостаточно» (plan.md §15,
   дополняет Cochrane-репро); non-code — видео-питч, слайды, деплой UI в YC.
 
-### Второй демо-кейс: «доказательств недостаточно» — sotorasib vs docetaxel (PASS)
+### Третий кейс: второй Cochrane-репро — anti-PD-(L)1 в 2L NSCLC (PASS)
+
+`eval/gold/cochrane_case_03_pd1_nsclc.json` + `make eval-live-3`. Cochrane-подобный gold из 4
+pivotal РКИ (CheckMate 017/057, KEYNOTE-010, OAK): pooled OS HR 0.71 (0.64–0.78). Все pivotal
+абстракты содержат явный OS-HR+CI (в отличие от трастузумаба HER2+ EBC).
+
+Live PASS: **retrieve/screen/extract/pool = 4/4/4/4** гoldNCT; **Pool HR 0.74 (0.64–0.86), k=8**
+vs Cochrane 0.71 — точка в 0.03, ДИ пересекается. Направление supported, favors_intervention,
+0 галлюцинаций. **Второй независимый Cochrane-обзор воспроизведён вживую** — killer-факт
+устоял на генерализации (другая нозология, другой класс препаратов).
+
+Ключевой фикс: `sort=relevance` в PubMed esearch — default «Best Match» опускает pivotal-РКИ
+мимо top-500 (проверено), а с `relevance` все 4 в top-42. Универсальная правка, полезная
+для любого будущего кейса.
+
+Регресс case 1 (BRAF+MEK) после `sort=relevance`: PASS ещё лучше — **Pool HR 0.70 (0.59–0.83),
+k=6** vs Cochrane 0.70 (0.59–0.82) — точка и ДИ практически идентичны.
+
+### Четвёртый демо-кейс: «доказательств недостаточно» — sotorasib vs docetaxel (PASS)
 
 `eval/gold/case_02_insufficient.json` (`status: ready`) + `eval/run_insufficient.py` + `make
 eval-insufficient`. Гипотеза: соторасиб vs доцетаксель во 2L KRAS G12C mNSCLC. Одна pivotal РКИ
