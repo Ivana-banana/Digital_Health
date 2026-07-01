@@ -1,0 +1,39 @@
+{
+  "case_id": "cochrane_case_02_trastuzumab",
+  "status": "ready",
+  "note": "Второй Cochrane-репро (другая нозология/класс препаратов): adjuvant trastuzumab vs no-trastuzumab в HER2+ early breast cancer, overall survival. Cochrane Moja 2012 (CD006243.pub2, PMID 22513938). Pooled OS HR 0.66 (95% CI 0.57–0.77), 8 РКИ, 11,991 пациентов. Проверяет генерализацию: пайплайн должен воспроизвести Cochrane не только для BRAF+MEK меланомы, но и для другого класса препаратов (моноклональное антитело) в другой опухоли (грудь).",
+  "source_review": {
+    "title": "Trastuzumab containing regimens for early breast cancer",
+    "authors": "Moja L, et al.",
+    "journal": "Cochrane Database of Systematic Reviews",
+    "year": 2012,
+    "doi": "10.1002/14651858.CD006243.pub2",
+    "pmid": "22513938"
+  },
+  "pico": {
+    "population": "HER2-positive early or locally advanced breast cancer",
+    "intervention": "adjuvant trastuzumab-containing regimen",
+    "comparison": "no trastuzumab (chemotherapy alone or observation)",
+    "outcome": "overall survival"
+  },
+  "demo_hypothesis": "У женщин с HER2-положительным ранним или местно-распространённым раком молочной железы адъювантная терапия с трастузумабом улучшает общую выживаемость по сравнению с адъювантной химиотерапией без трастузумаба или наблюдением.",
+  "ground_truth": {
+    "effect_type": "HR",
+    "pooled_point": 0.66,
+    "pooled_ci_low": 0.57,
+    "pooled_ci_high": 0.77,
+    "n_studies_cochrane": 8,
+    "n_patients_cochrane": 11991,
+    "evidence_grade": "high",
+    "comparison_label": "adjuvant trastuzumab vs no trastuzumab, overall survival"
+  },
+  "included_pmids": [],
+  "included_ncts": [
+    "NCT00045032",
+    "NCT00004067",
+    "NCT00005970",
+    "NCT00021255"
+  ],
+  "included_ncts_note": "Известные NCT pivotal-РКИ: NCT00045032=HERA, NCT00004067=NSABP B-31, NCT00005970=NCCTG N9831, NCT00021255=BCIRG 006. FinHer/PACS04 без NCT (до эры регистрации) — их recall через NCT не отследить, но публикации попадут в пул через identity.",
+  "per_trial": []
+}

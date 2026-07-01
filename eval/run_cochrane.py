@@ -23,11 +23,13 @@ from src.domain.schemas import MetaResult
 from src.stats.meta import poolable
 
 ROOT = Path(__file__).resolve().parents[1]
-GOLD = ROOT / "eval" / "gold" / "cochrane_case_01.json"
+GOLD_DIR = ROOT / "eval" / "gold"
+DEFAULT_CASE = "cochrane_case_01"
 
 
-def _load_gold() -> dict:
-    return json.loads(GOLD.read_text(encoding="utf-8"))
+def _load_gold(case_id: str) -> dict:
+    path = GOLD_DIR / f"{case_id}.json"
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _pmid_from_source_id(sid: str) -> str | None:
@@ -147,7 +149,11 @@ def main() -> int:
         )
         return 2
 
-    gold = _load_gold()
+    case_id = DEFAULT_CASE
+    for arg in sys.argv[1:]:
+        if arg.startswith("--case="):
+            case_id = arg[len("--case=") :]
+    gold = _load_gold(case_id)
     hypothesis = gold["demo_hypothesis"]
     print(f"Live Cochrane-бенчмарк [{gold['case_id']}]: {gold['ground_truth']['comparison_label']}")
     print(f"Гипотеза: {hypothesis}")

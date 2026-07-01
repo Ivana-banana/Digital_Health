@@ -24,8 +24,11 @@ test:               ## Юнит-тесты
 eval:               ## Frozen-eval-subset — детерминированный quality-gate (plan §10)
 	python -m eval.run_frozen
 
-eval-live:          ## Live Cochrane-бенчмарк — сверка живого пула с gold (нужен .env)
+eval-live:          ## Live Cochrane-репро (BRAF+MEK меланома, OS) — сверка пула с gold (.env)
 	python -m eval.run_cochrane
+
+eval-live-2:        ## Live Cochrane-репро (адъювантный трастузумаб HER2+ РМЖ, OS) — второй кейс
+	python -m eval.run_cochrane --case=cochrane_case_02_trastuzumab
 
 eval-insufficient:  ## Live «доказательств недостаточно» — честный отказ на разреж. кейсе (.env)
 	python -m eval.run_insufficient

@@ -16,7 +16,8 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
+from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
@@ -33,6 +34,10 @@ class AIStudioLLM:
     models: ModelConfig
     folder_id: str | None = None
     max_output_tokens: int | None = None
+    # Ленивый переиспользуемый клиент: под burst screening (сотни вызовов) свежий клиент
+    # на каждый вызов = 158 TCP-handshake'ов подряд → AI Studio rate-limit на connect
+    # → openai.APITimeoutError. Один клиент с pool держит соединения тёплыми.
+    _cached_client: Any = field(default=None, repr=False, init=False)
 
     @classmethod
     def from_env(cls, models: ModelConfig | None = None) -> AIStudioLLM:
@@ -56,9 +61,15 @@ class AIStudioLLM:
 
     def _client(self):
         # Импорт и инстанцирование лениво: офлайн-тесты не тянут клиент/сеть.
-        from openai import AsyncOpenAI
+        # Клиент кэшируется — иначе под burst screening (сотни вызовов) каждый вызов
+        # открывает новый TCP-connection и AI Studio отдаёт connect-timeout.
+        if self._cached_client is None:
+            from openai import AsyncOpenAI
 
-        return AsyncOpenAI(base_url=self.base_url, api_key=self.api_key)
+            self._cached_client = AsyncOpenAI(
+                base_url=self.base_url, api_key=self.api_key, timeout=120.0, max_retries=2
+            )
+        return self._cached_client
 
     def _model_uri(self, role: ModelRole) -> str:
         # AI Studio требует полный URI модели: gpt://<folder>/<model>/latest.
