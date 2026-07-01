@@ -170,6 +170,99 @@ def test_grade_downgraded_for_high_rob():
     assert g == "moderate"
 
 
+def test_grade_considerable_heterogeneity_downgraded_twice():
+    """I² > 90% → considerable heterogeneity (Cochrane): −2 (plan §8)."""
+    g = grade_level(
+        [StudyDesign.RCT, StudyDesign.RCT, StudyDesign.RCT],
+        i_squared=95.0,
+        ci_low=0.5,
+        ci_high=0.7,
+        abstract_only=False,
+    )
+    assert g == "low"  # high − 2 (considerable) = low
+
+
+def test_grade_imprecision_ci_crosses_no_effect_line():
+    """Ratio-мера: CI пересекает 1.0 → −1 (Cochrane imprecision)."""
+    g = grade_level(
+        [StudyDesign.RCT, StudyDesign.RCT],
+        i_squared=0.0,
+        ci_low=0.7,
+        ci_high=1.3,  # пересекает no-effect 1.0
+        abstract_only=False,
+        effect_type="HR",
+    )
+    assert g == "moderate"
+
+
+def test_grade_ratio_ci_not_crossing_no_effect_stays_high():
+    """Ratio-мера: CI не пересекает 1.0 → нет imprecision-downgrade'а."""
+    g = grade_level(
+        [StudyDesign.RCT, StudyDesign.RCT],
+        i_squared=0.0,
+        ci_low=0.55,
+        ci_high=0.92,
+        abstract_only=False,
+        effect_type="HR",
+    )
+    assert g == "high"
+
+
+def test_grade_wide_ci_downgraded():
+    """Очень широкий CI (upper/lower > 4) → −1 imprecision (не-ratio)."""
+    g = grade_level(
+        [StudyDesign.RCT, StudyDesign.RCT],
+        i_squared=0.0,
+        ci_low=0.5,
+        ci_high=2.5,  # 2.5/0.5 = 5 > 4
+        abstract_only=False,
+        effect_type="MD",  # не ratio — линию no-effect не учитываем
+    )
+    assert g == "moderate"
+
+
+def test_grade_observational_upgraded_for_large_effect():
+    """Наблюдательное с HR < 0.5 → +1 (large effect, Cochrane upgrade)."""
+    g = grade_level(
+        [StudyDesign.OBSERVATIONAL, StudyDesign.OBSERVATIONAL],
+        i_squared=0.0,
+        ci_low=0.3,
+        ci_high=0.45,
+        abstract_only=False,
+        effect_type="HR",
+        pooled_point=0.4,
+    )
+    assert g == "moderate"  # low + 1
+
+
+def test_grade_observational_upgraded_for_very_large_effect():
+    """Наблюдательное с HR < 0.2 → +2 (very large effect)."""
+    g = grade_level(
+        [StudyDesign.OBSERVATIONAL, StudyDesign.OBSERVATIONAL],
+        i_squared=0.0,
+        ci_low=0.08,
+        ci_high=0.15,
+        abstract_only=False,
+        effect_type="HR",
+        pooled_point=0.12,
+    )
+    assert g == "high"  # low + 2 clamped by upgrade
+
+
+def test_grade_rct_large_effect_not_upgraded():
+    """РКИ с large effect: upgrade не применяется (start=high; guidance для наблюдательных)."""
+    g = grade_level(
+        [StudyDesign.RCT, StudyDesign.RCT],
+        i_squared=0.0,
+        ci_low=0.3,
+        ci_high=0.45,
+        abstract_only=False,
+        effect_type="HR",
+        pooled_point=0.4,
+    )
+    assert g == "high"  # без изменений
+
+
 def test_grade_no_downgrade_when_egger_none():
     g = grade_level(
         [StudyDesign.RCT, StudyDesign.RCT],

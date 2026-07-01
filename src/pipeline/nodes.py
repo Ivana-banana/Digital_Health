@@ -471,6 +471,8 @@ async def meta(state: ResearchState, deps: Deps) -> ResearchState:
                     abstract_only=all(e.text_source == "abstract" for e in ps),
                     egger_p=egger_p,
                     high_rob=high_rob,
+                    effect_type=result.effect_type,
+                    pooled_point=result.pooled_point,
                 ),
             }
         )

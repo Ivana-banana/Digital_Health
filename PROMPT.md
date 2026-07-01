@@ -27,7 +27,7 @@ AI Studio `qwen3.6-35b` ~3с).
 
 2. **Подними окружение:** `.venv` уже есть → на Windows `.venv/Scripts/python.exe`, на Linux
    `.venv/bin/python` (проверено — работает). Проверь, что база зелёная:
-   - `ruff check . && ruff format --check . && pytest` → **105 тестов зелёных**;
+   - `ruff check . && ruff format --check . && pytest` → **112 тестов зелёных**;
    - `python -m eval.run_frozen` → frozen-eval **PASS, exit 0** (хард-гейт hallucination-rate=0);
    - `python -m src.app.main` → «Solution started» + ход анализа, **exit 0** (контракт ИИ-судьи);
    - `python -m eval.run_cochrane` → live Cochrane-бенч (нужен `.env`; без `.env` — exit 2 skip);
@@ -163,6 +163,12 @@ AI Studio `qwen3.6-35b` ~3с).
      (qwen3-235b-a22b-fp8). Default off (медленнее/дороже); smoke-test подтвердил, что
      reasoning-модель отвечает через AI Studio. Tests: `_RoleCapturingLLM` fake port
      проверяет model_role по флагу.
+
+10f. **GRADE калибровка по Cochrane-гайдлайнам (02.07.2026):** `grade_level()` расширен:
+     inconsistency I²>90% → −2 (considerable heterogeneity); imprecision ratio-мер CI
+     пересекает 1.0 → −1; large-effect upgrade для наблюдательных (HR<0.5 → +1, <0.2 →
+     +2). Backward-compat: старая сигнатура работает. Пример: offline demo с HR 0.61
+     (CI 0.36-1.02) теперь `low` (было `moderate`) — CI пересекает 1.0 честно понижает.
 
 11. **Следующие шаги:**
     - **Не-код (см. HANDOFF.md «Не-код TODO»):** видео-питч 5–7 мин; сценарий демо (2 кейса

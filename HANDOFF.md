@@ -212,6 +212,28 @@ vs Cochrane 0.71 — точка в 0.03, ДИ пересекается. Напр
 Регресс case 1 (BRAF+MEK) после `sort=relevance`: PASS ещё лучше — **Pool HR 0.70 (0.59–0.83),
 k=6** vs Cochrane 0.70 (0.59–0.82) — точка и ДИ практически идентичны.
 
+### Восьмой шаг: GRADE калибровка по Cochrane-гайдлайнам (02.07.2026)
+
+Cochrane-подобная калибровка `grade_level()` (plan §8, GRADE Handbook 2013):
+- **Inconsistency**: I² > 90% → −2 (considerable heterogeneity, было −1 при >50%).
+- **Imprecision**: для ratio-мер CI пересекает линию no-effect (1.0) → −1; иначе широкий
+  CI (upper/lower > 4) → −1. Раньше был только грубый порог 3× — не учитывал клиническую
+  значимость пересечения нуля-эффекта.
+- **Indirectness / low-quality source**: abstract_only → −1 (без изменений).
+- **Publication bias / RoB**: без изменений (Egger p<0.1, high_rob).
+- **Large-effect upgrade** (для наблюдательных, start=low): HR/OR/RR < 0.5 или > 2.0 → +1
+  (large); < 0.2 или > 5.0 → +2 (very large). Раньше upgrades не поддерживались.
+- Backward-compat: `effect_type`/`pooled_point` необязательные — старая логика работает
+  как раньше без них.
+
+Пример из frozen-eval (offline demo, k=2, HR 0.61 CI 0.36-1.02): GRADE = `low` (было `moderate`)
+— CI пересекает 1.0 (imprecision −1) + abstract_only (−1) → high − 2 = low. Честно.
+
+Тесты: +7 GRADE-калибровки (`test_meta.py`), покрывают considerable heterogeneity, imprecision
+CI-cross-1.0, wide-CI, large/very-large upgrade для observational, no-upgrade для РКИ.
+
+**112 тестов зелёные** (было 105 + 7 GRADE).
+
 ### Седьмой шаг: reasoning-эскалация extract на Qwen3 235B (02.07.2026)
 
 Плановая эскалация (plan §5) для главного узла качества:
