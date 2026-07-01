@@ -1,0 +1,27 @@
+{
+  "case_id": "case_02_insufficient",
+  "status": "ready",
+  "note": "Разреженный сценарий (plan.md §15, второй демо-кейс): очень новая тема — sotorasib vs docetaxel в 2L KRAS G12C mNSCLC. Опубликована одна pivotal РКИ (CodeBreaK 200, Lancet 2023). Второго сопоставимого РКИ на момент 2026-07 нет → мета-анализ невозможен (пул требует ≥2). Система должна честно сообщить «доказательств недостаточно», без бинарного вердикта. Комплемент к cochrane_case_01 (репро) — вместе показывают: система не гадает.",
+  "source_pivotal": {
+    "title": "Sotorasib versus docetaxel for previously treated non-small-cell lung cancer with KRAS(G12C) mutation: a randomised, open-label, phase 3 trial",
+    "authors": "de Langen AJ, et al. (CodeBreaK 200)",
+    "journal": "Lancet",
+    "year": 2023,
+    "pmid": "36774935",
+    "doi": "10.1016/S0140-6736(23)00221-0"
+  },
+  "pico": {
+    "population": "previously treated KRAS G12C-mutant metastatic non-small-cell lung cancer",
+    "intervention": "sotorasib",
+    "comparison": "docetaxel",
+    "outcome": "overall survival"
+  },
+  "demo_hypothesis": "У пациентов с KRAS G12C-мутантным метастатическим немелкоклеточным раком лёгкого, получавших предшествующую системную терапию, соторасиб улучшает общую выживаемость по сравнению с доцетакселем.",
+  "expected_report": {
+    "direction": null,
+    "strength": "insufficient",
+    "meta_feasible": false,
+    "min_candidates": 5,
+    "reason_note": "Одна pivotal РКИ (CodeBreaK 200) не даёт пула — требуется ≥2 сопоставимых. Честный отказ, не бинарный вердикт."
+  }
+}

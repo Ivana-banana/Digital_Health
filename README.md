@@ -37,7 +37,8 @@ Cochrane-обзор**. Это то, что мы защищаем на питче
 ```bash
 cp config/.env.example .env          # вписать YANDEX_API_KEY + YANDEX_FOLDER_ID
 python -m src.app.main --live        # реальные PubMed + AI Studio → отчёт
-make eval-live                       # live Cochrane-бенчмарк: сверка пула с gold (питч)
+make eval-live                       # live Cochrane-репро: HR 0.70 ≡ Cochrane HR 0.70 (killer-факт)
+make eval-insufficient               # live «доказательств недостаточно»: честный отказ (комплемент)
 # или UI-переключатель «Живые данные» в Streamlit-демо (ниже)
 ```
 
