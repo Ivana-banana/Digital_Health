@@ -212,6 +212,19 @@ vs Cochrane 0.71 — точка в 0.03, ДИ пересекается. Напр
 Регресс case 1 (BRAF+MEK) после `sort=relevance`: PASS ещё лучше — **Pool HR 0.70 (0.59–0.83),
 k=6** vs Cochrane 0.70 (0.59–0.82) — точка и ДИ практически идентичны.
 
+### Седьмой шаг: reasoning-эскалация extract на Qwen3 235B (02.07.2026)
+
+Плановая эскалация (plan §5) для главного узла качества:
+- **`extract()`** под флагом `enable_reasoning_escalation` переключается с workhorse
+  (`qwen3.6-35b-a3b`) на reasoning (`qwen3-235b-a22b-fp8`). Ловит стохастические
+  `unavailable` от workhorse на нетривиальных абстрактах (COMBI-v-подобные).
+- Default off (медленнее и дороже). Включается кастомным конфигом; smoke-test AI Studio
+  подтвердил, что `qwen3-235b-a22b-fp8/latest` отвечает через тот же порт.
+- Тесты: workhorse по умолчанию + reasoning под флагом (`tests/test_nodes_extract.py`,
+  fake port `_RoleCapturingLLM` записывает `model_role` каждого вызова).
+
+**105 тестов зелёные** (было 103 + 2 escalation-теста).
+
 ### Шестой шаг: sensitivity + provenance в UI (02.07.2026)
 
 Глубина методологии видна врачу и жюри в интерфейсе (plan §8, §9; крит. 5/7/8):

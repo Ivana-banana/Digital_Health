@@ -40,7 +40,7 @@ from src.domain.schemas import (
 from src.domain.scoring import trust_score
 from src.pipeline.deps import Deps
 from src.pipeline.state import ResearchState
-from src.ports import Ok
+from src.ports import ModelRole, Ok
 from src.stats.effect_conversions import derive_variance, is_log_scale, is_plausible_effect
 from src.stats.meta import (
     egger_test,
@@ -404,6 +404,11 @@ async def extract(state: ResearchState, deps: Deps) -> ResearchState:
     candidates = sorted(candidates, key=lambda s: s.trust_score or 0, reverse=True)
     candidates = candidates[: deps.config.max_deep_studies]
 
+    # Reasoning-эскалация (plan §5): извлечение — узкий бутылочный горлышко качества (пул),
+    # тяжёлый шаг → под флагом идёт на Qwen3 235B (workhorse — Qwen3.6 35B по умолчанию).
+    extract_role: ModelRole = (
+        "reasoning" if deps.config.enable_reasoning_escalation else "workhorse"
+    )
     extractions: list[Extraction] = []
     for s in candidates:
         # Весь PICO в prompt — LLM должен сам решать «моё сравнение или нет» (precision, plan §9).
@@ -415,6 +420,7 @@ async def extract(state: ResearchState, deps: Deps) -> ResearchState:
         res = await deps.llm.complete(
             [{"role": "system", "content": EXTRACT_SYS}, {"role": "user", "content": prompt}],
             schema=Extraction,
+            model_role=extract_role,
         )
         ex = res.value if isinstance(res, Ok) else Extraction(source_id=identity_key(s))
         ex = ex.model_copy(

@@ -27,7 +27,7 @@ AI Studio `qwen3.6-35b` ~3с).
 
 2. **Подними окружение:** `.venv` уже есть → на Windows `.venv/Scripts/python.exe`, на Linux
    `.venv/bin/python` (проверено — работает). Проверь, что база зелёная:
-   - `ruff check . && ruff format --check . && pytest` → **103 теста зелёных**;
+   - `ruff check . && ruff format --check . && pytest` → **105 тестов зелёных**;
    - `python -m eval.run_frozen` → frozen-eval **PASS, exit 0** (хард-гейт hallucination-rate=0);
    - `python -m src.app.main` → «Solution started» + ход анализа, **exit 0** (контракт ИИ-судьи);
    - `python -m eval.run_cochrane` → live Cochrane-бенч (нужен `.env`; без `.env` — exit 2 skip);
@@ -157,6 +157,12 @@ AI Studio `qwen3.6-35b` ~3с).
      из абстракта» (evidence_span, план §9); в отчёте — caption-цитата под каждым фактом.
      Живой прогон case 1: `loo=6` (6 пере-пулов). Врач/жюри видят методологию и провенанс
      каждого числа → крит. 5/7/8.
+
+10e. **Reasoning-эскалация extract на Qwen3 235B (02.07.2026):** `extract()` под флагом
+     `enable_reasoning_escalation` переключается с workhorse (qwen3.6-35b-a3b) на reasoning
+     (qwen3-235b-a22b-fp8). Default off (медленнее/дороже); smoke-test подтвердил, что
+     reasoning-модель отвечает через AI Studio. Tests: `_RoleCapturingLLM` fake port
+     проверяет model_role по флагу.
 
 11. **Следующие шаги:**
     - **Не-код (см. HANDOFF.md «Не-код TODO»):** видео-питч 5–7 мин; сценарий демо (2 кейса

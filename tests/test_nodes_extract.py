@@ -63,3 +63,48 @@ def test_extract_keeps_plausible_hr():
     )
     assert ex.variance_source == "reported_ci"
     assert ex.se and ex.se > 0
+
+
+class _RoleCapturingLLM:
+    """Fake LLMPort: записывает model_role каждого вызова для проверки эскалации."""
+
+    def __init__(self, canned: Extraction) -> None:
+        self.canned = canned
+        self.roles: list[str] = []
+
+    async def complete(self, msgs, *, schema=None, temperature=0.0, model_role="workhorse"):
+        from src.ports import Ok
+
+        self.roles.append(model_role)
+        return Ok(self.canned)
+
+
+def _run_extract_with_llm(llm, cfg) -> None:
+    src = Source(
+        pmid="1",
+        title="Trial",
+        abstract="HR 0.70",
+        design=StudyDesign.RCT,
+    )
+    from dataclasses import replace as _replace
+
+    state = {
+        "pico": PICO(population="p", intervention="i", comparison="c", outcome="o"),
+        "candidates": [src],
+        "screening": [ScreenDecision(source_id=identity_key(src), include=True)],
+    }
+    deps = Deps(llm=llm, config=_replace(Deps(llm=llm).config, **cfg))
+    asyncio.run(extract(state, deps))
+
+
+def test_extract_uses_workhorse_by_default():
+    llm = _RoleCapturingLLM(Extraction(source_id="", effect_type="HR", point=0.7))
+    _run_extract_with_llm(llm, {})
+    assert llm.roles == ["workhorse"]
+
+
+def test_extract_escalates_to_reasoning_under_flag():
+    """Reasoning-эскалация (plan §5): тяжёлый шаг extract идёт на Qwen3 235B под флагом."""
+    llm = _RoleCapturingLLM(Extraction(source_id="", effect_type="HR", point=0.7))
+    _run_extract_with_llm(llm, {"enable_reasoning_escalation": True})
+    assert llm.roles == ["reasoning"]
