@@ -15,6 +15,7 @@ from src.domain.identity import identity_key
 from src.domain.schemas import (
     PICO,
     Extraction,
+    Infeasible,
     MetaResult,
     PrismaCounts,
     Report,
@@ -113,13 +114,41 @@ class SourceRow:
 
 @dataclass(frozen=True)
 class EffectRow:
-    """Строка таблицы эффектов: честная семантика variance_source (plan §0.2)."""
+    """Строка таблицы эффектов: честная семантика variance_source (plan §0.2).
+
+    `evidence_span` — дословная цитата из абстракта, обосновывающая число (провенанс,
+    plan §9). Врач видит откуда взято число → снижение рисков LLM (крит. 7).
+    """
 
     source_id: str
     effect_type: str | None
     point: float | None
     ci: str  # "0.44–0.77" либо "" если не сообщён
     variance_source: str
+    evidence_span: str = ""
+
+
+@dataclass(frozen=True)
+class LOORow:
+    """Строка leave-one-out: пере-пул без одного исследования (plan §8 sensitivity)."""
+
+    excluded_source_id: str | None
+    pooled_point: float
+    pooled_ci_low: float
+    pooled_ci_high: float
+    k_studies: int
+
+
+@dataclass(frozen=True)
+class SensitivityView:
+    """Все sensitivity-варианты пула для UI (plan §8): LOO + без high-RoB."""
+
+    leave_one_out: list[LOORow] = field(default_factory=list)
+    high_rob_pooled_point: float | None = None
+    high_rob_pooled_ci_low: float | None = None
+    high_rob_pooled_ci_high: float | None = None
+    high_rob_k_studies: int | None = None
+    high_rob_note: str = ""  # «нет high-RoB» / «мета невозможна без high-RoB»
 
 
 @dataclass(frozen=True)
@@ -136,6 +165,7 @@ class ViewModel:
     meta: MetaResult | None = None  # None, если мета невозможна/отсутствует
     forest_path: str | None = None
     funnel_path: str | None = None
+    sensitivity: SensitivityView | None = None
     report: Report | None = None
 
 
@@ -175,6 +205,7 @@ def build_view(state: Mapping) -> ViewModel:
             point=e.point,
             ci=_ci(e),
             variance_source=e.variance_source,
+            evidence_span=e.evidence_span or "",
         )
         for e in state.get("extractions", [])
     ]
@@ -183,6 +214,41 @@ def build_view(state: Mapping) -> ViewModel:
     translation = queries[0].translation if queries else None
     meta = state.get("meta")
     meta = meta if isinstance(meta, MetaResult) else None
+
+    # Sensitivity-варианты пула (plan §8): leave-one-out + пере-пул без high-RoB.
+    loo_rows = [
+        LOORow(
+            excluded_source_id=r.excluded_source_id,
+            pooled_point=r.pooled_point,
+            pooled_ci_low=r.pooled_ci_low,
+            pooled_ci_high=r.pooled_ci_high,
+            k_studies=r.k_studies,
+        )
+        for r in state.get("leave_one_out", [])
+    ]
+    sens_high_rob = state.get("sens_high_rob")
+    sens_view: SensitivityView | None = None
+    if meta is not None:
+        if isinstance(sens_high_rob, MetaResult):
+            sens_view = SensitivityView(
+                leave_one_out=loo_rows,
+                high_rob_pooled_point=sens_high_rob.pooled_point,
+                high_rob_pooled_ci_low=sens_high_rob.pooled_ci_low,
+                high_rob_pooled_ci_high=sens_high_rob.pooled_ci_high,
+                high_rob_k_studies=sens_high_rob.k_studies,
+                high_rob_note=(
+                    "Пул совпадает с основным (нет high-RoB)"
+                    if sens_high_rob.k_studies == meta.k_studies
+                    else f"Пере-пул без high-RoB (k={sens_high_rob.k_studies})"
+                ),
+            )
+        elif isinstance(sens_high_rob, Infeasible):
+            sens_view = SensitivityView(
+                leave_one_out=loo_rows,
+                high_rob_note=f"Мета невозможна без high-RoB: {sens_high_rob.reason}",
+            )
+        else:
+            sens_view = SensitivityView(leave_one_out=loo_rows)
 
     return ViewModel(
         hypothesis=state.get("raw_hypothesis", ""),
@@ -195,5 +261,6 @@ def build_view(state: Mapping) -> ViewModel:
         meta=meta,
         forest_path=meta.forest_plot_path if meta else None,
         funnel_path=meta.funnel_plot_path if meta else None,
+        sensitivity=sens_view,
         report=state.get("report"),
     )

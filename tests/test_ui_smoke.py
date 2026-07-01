@@ -44,6 +44,11 @@ def test_ui_offline_full_flow(app: AppTest) -> None:
     markdowns = [m.value for m in app.markdown if m.value]
     assert any("Направление эффекта" in v for v in markdowns)
     assert any("Доказательность" in v for v in markdowns)
+    # Sensitivity-вкладка отрендерилась (caption/markdown с описанием leave-one-out).
+    all_text = " ".join(m.value for m in app.markdown if m.value) + " ".join(
+        c.value or "" for c in app.caption
+    )
+    assert "leave-one-out" in all_text or "исключени" in all_text
 
 
 def test_ui_headless_no_exceptions(app: AppTest) -> None:

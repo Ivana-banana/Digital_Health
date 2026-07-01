@@ -171,16 +171,20 @@ def egger_test(extractions: list[Extraction]) -> float | None:
 
 
 def leave_one_out(extractions: list[Extraction]) -> list[MetaResult]:
-    """Чувствительность: пере-пул без каждого исследования группы (нужно ≥3, иначе пусто)."""
+    """Чувствительность: пере-пул без каждого исследования группы (нужно ≥3, иначе пусто).
+
+    Каждый MetaResult помечен `excluded_source_id` — какое исследование выведено из пула
+    (для UI/отчёта, plan §8 sensitivity).
+    """
     sel = _largest_compatible_group(extractions)
     if isinstance(sel, Infeasible):
         return []
     _, grp = sel
     results: list[MetaResult] = []
-    for i in range(len(grp)):
+    for i, excluded in enumerate(grp):
         res = random_effects_pool(grp[:i] + grp[i + 1 :])
         if isinstance(res, MetaResult):
-            results.append(res)
+            results.append(res.model_copy(update={"excluded_source_id": excluded.source_id}))
     return results
 
 

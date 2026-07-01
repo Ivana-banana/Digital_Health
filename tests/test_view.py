@@ -71,3 +71,13 @@ def test_view_meta_and_report():
     assert vm.forest_path and vm.funnel_path  # пути графиков для вкладки
     assert vm.report and vm.report.direction == "favors_intervention"
     assert vm.report.confidence in ("high", "moderate", "low", "very_low")
+
+
+def test_view_sensitivity_present_when_meta_feasible():
+    """Sensitivity доступна при собранном пуле (plan §8): LOO пусто при k=2, RoB-нота есть."""
+    vm = _view()
+    assert vm.sensitivity is not None
+    # k=2 в demo → leave-one-out недостаточно (нужно ≥3); должен быть пустой list.
+    assert vm.sensitivity.leave_one_out == []
+    # sens_high_rob: в demo appraisals не «high» → пул совпадает или Infeasible; note заполнен.
+    assert vm.sensitivity.high_rob_note

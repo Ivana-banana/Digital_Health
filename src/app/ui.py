@@ -101,8 +101,10 @@ def _render_interrupt(value: dict) -> None:
 
 
 def _render_report(vm) -> None:
-    """Вкладки результата: источники / эффекты / графики / PRISMA / trust / отчёт."""
-    tabs = st.tabs(["Отчёт", "Источники", "Эффекты", "Графики", "PRISMA", "Trust"])
+    """Вкладки результата: отчёт/источники/эффекты/графики/PRISMA/trust/чувствительность."""
+    tabs = st.tabs(
+        ["Отчёт", "Источники", "Эффекты", "Графики", "PRISMA", "Trust", "Чувствительность"]
+    )
     with tabs[0]:
         r = vm.report
         if r:
@@ -115,6 +117,9 @@ def _render_report(vm) -> None:
                 st.write(r.summary)
             for c in r.facts:
                 st.markdown(f"- {c.text}" + (f"  ↳ {c.source_id}" if c.source_id else ""))
+                # Провенанс: дословная цитата из абстракта → врач проверяет число (plan §9).
+                if c.span:
+                    st.caption(f"  «{c.span}»")
         st.caption(DISCLAIMER)
     with tabs[1]:
         st.dataframe(
@@ -141,6 +146,7 @@ def _render_report(vm) -> None:
                     "Оценка": e.point,
                     "95% CI": e.ci,
                     "Дисперсия": variance_label(e.variance_source),
+                    "Цитата из абстракта": e.evidence_span,
                 }
                 for e in vm.effects
             ]
@@ -171,6 +177,43 @@ def _render_report(vm) -> None:
         for s in vm.sources:
             st.write(s.label)
             st.progress(min(int(s.trust or 0), 100))
+    with tabs[6]:
+        _render_sensitivity(vm)
+
+
+def _render_sensitivity(vm) -> None:
+    """Sensitivity-анализ (plan §8): leave-one-out + пере-пул без high-RoB."""
+    if not vm.sensitivity or not vm.meta:
+        st.info("Sensitivity доступна только при собранном пуле.")
+        return
+    s = vm.sensitivity
+    st.markdown(
+        "Насколько устойчив пул к исключению одного исследования (leave-one-out) "
+        "и к исключению исследований с высоким риском смещения (RoB)."
+    )
+    if s.leave_one_out:
+        st.markdown("**Leave-one-out:** пул без каждого исследования")
+        st.dataframe(
+            [
+                {
+                    "Исключено": r.excluded_source_id or "—",
+                    "Пул HR": round(r.pooled_point, 3),
+                    "95% CI низ": round(r.pooled_ci_low, 3),
+                    "95% CI верх": round(r.pooled_ci_high, 3),
+                    "k": r.k_studies,
+                }
+                for r in s.leave_one_out
+            ]
+        )
+    else:
+        st.caption("Leave-one-out: k<3 в основном пуле — недостаточно исследований.")
+    st.markdown("**Пере-пул без high-RoB:**")
+    if s.high_rob_pooled_point is not None:
+        st.markdown(
+            f"HR {s.high_rob_pooled_point:.2f} (95% CI {s.high_rob_pooled_ci_low:.2f}–"
+            f"{s.high_rob_pooled_ci_high:.2f}), k={s.high_rob_k_studies}"
+        )
+    st.caption(s.high_rob_note)
 
 
 def main() -> None:

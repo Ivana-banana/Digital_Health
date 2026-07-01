@@ -45,6 +45,10 @@ class ResearchState(TypedDict, total=False):
     extractions: Annotated[list[Extraction], operator.add]
     appraisals: Annotated[list[Appraisal], operator.add]
     meta: MetaResult | Infeasible | None
+    # Чувствительность (plan §8): leave-one-out и sensitivity-by-RoB — заполняются в узле
+    # meta() рядом с основным пулом; отображаются в UI (вкладка «Чувствительность»).
+    leave_one_out: list[MetaResult]
+    sens_high_rob: MetaResult | Infeasible | None
     report: Report | None
     factcheck_retries: int  # счётчик ограниченной петли фактчекинга (plan §9)
     needs_regen: bool  # сигнал роутера: регенерировать секцию отчёта

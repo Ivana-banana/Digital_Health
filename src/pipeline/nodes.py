@@ -42,7 +42,13 @@ from src.pipeline.deps import Deps
 from src.pipeline.state import ResearchState
 from src.ports import Ok
 from src.stats.effect_conversions import derive_variance, is_log_scale, is_plausible_effect
-from src.stats.meta import egger_test, poolable, random_effects_pool
+from src.stats.meta import (
+    egger_test,
+    leave_one_out,
+    poolable,
+    random_effects_pool,
+    sensitivity_by_rob,
+)
 from src.stats.plots import forest_plot, funnel_plot
 
 # Внутренняя коммуникация — EN (модели/поиск точнее на английском); отчёт — RU (plan §6.1).
@@ -471,8 +477,21 @@ async def meta(state: ResearchState, deps: Deps) -> ResearchState:
                     "funnel_plot_path": funnel_plot(ps, out / "funnel.png"),
                 }
             )
-    deps.logger.event("meta", feasible=isinstance(result, MetaResult))
-    return {"meta": result, "audit": [Event(node="meta")]}
+    # Чувствительность (plan §8): leave-one-out (k≥3 → k результатов) + пере-пул без high-RoB.
+    # Пусто, если основной пул невозможен; для UI отображается только при MetaResult.
+    loo = leave_one_out(extractions) if isinstance(result, MetaResult) else []
+    sens = (
+        sensitivity_by_rob(extractions, state.get("appraisals", []))
+        if isinstance(result, MetaResult)
+        else None
+    )
+    deps.logger.event("meta", feasible=isinstance(result, MetaResult), loo=len(loo))
+    return {
+        "meta": result,
+        "leave_one_out": loo,
+        "sens_high_rob": sens,
+        "audit": [Event(node="meta")],
+    }
 
 
 def _direction(meta: MetaResult) -> str:

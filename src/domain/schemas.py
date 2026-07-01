@@ -250,6 +250,9 @@ class MetaResult(BaseModel):
     grade: GradeLevel = "low"
     forest_plot_path: str | None = None
     funnel_plot_path: str | None = None
+    # Метка для leave-one-out / sensitivity вариантов пула: какое исследование исключено
+    # (None — основной пул). Не влияет на матстат, только для UI/отчёта (plan §8 sensitivity).
+    excluded_source_id: str | None = None
 
 
 class Infeasible(BaseModel):
