@@ -27,7 +27,7 @@ AI Studio `qwen3.6-35b` ~3с).
 
 2. **Подними окружение:** `.venv` уже есть → на Windows `.venv/Scripts/python.exe`, на Linux
    `.venv/bin/python` (проверено — работает). Проверь, что база зелёная:
-   - `ruff check . && ruff format --check . && pytest` → **102 теста зелёных**;
+   - `ruff check . && ruff format --check . && pytest` → **103 теста зелёных**;
    - `python -m eval.run_frozen` → frozen-eval **PASS, exit 0** (хард-гейт hallucination-rate=0);
    - `python -m src.app.main` → «Solution started» + ход анализа, **exit 0** (контракт ИИ-судьи);
    - `python -m eval.run_cochrane` → live Cochrane-бенч (нужен `.env`; без `.env` — exit 2 skip);
@@ -151,6 +151,12 @@ AI Studio `qwen3.6-35b` ~3с).
      AppTest headless-регрессы UI-пути (полный офлайн-поток, чистый старт); Docker UI-образ
      `ai-v-massy-ui:latest` собран, контейнер стартует, `GET /` → HTTP 200, `/_stcore/health` →
      200. Артефакт готов к YC-деплою (Serverless Container / Compute VM).
+
+10d. **Sensitivity + provenance в UI (02.07.2026):** новая вкладка «Чувствительность»
+     (leave-one-out + пере-пул без high-RoB, план §8); в вкладке «Эффекты» — колонка «Цитата
+     из абстракта» (evidence_span, план §9); в отчёте — caption-цитата под каждым фактом.
+     Живой прогон case 1: `loo=6` (6 пере-пулов). Врач/жюри видят методологию и провенанс
+     каждого числа → крит. 5/7/8.
 
 11. **Следующие шаги:**
     - **Не-код (см. HANDOFF.md «Не-код TODO»):** видео-питч 5–7 мин; сценарий демо (2 кейса
