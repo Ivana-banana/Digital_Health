@@ -14,7 +14,7 @@ COPY src/ ./src/
 COPY eval/ ./eval/
 COPY data/ ./data/
 
-EXPOSE 8501
-# headless + слушать все интерфейсы — для контейнера/облака.
+EXPOSE 8080
+# headless + слушать все интерфейсы — для контейнера/облака (YC Serverless слушает 8080).
 CMD ["streamlit", "run", "src/app/ui.py", \
-     "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true"]
+     "--server.address=0.0.0.0", "--server.port=8080", "--server.headless=true"]
