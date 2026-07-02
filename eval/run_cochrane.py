@@ -164,7 +164,7 @@ def main() -> int:
     print(f"Live Cochrane-бенчмарк [{gold['case_id']}]: {gold['ground_truth']['comparison_label']}")
     print(f"Гипотеза: {hypothesis}")
 
-    deps = build_live_deps(interactive=False)
+    deps = build_live_deps(interactive=False, fulltext=bool(gold.get("requires_fulltext")))
     final = asyncio.run(run_full(hypothesis, deps))
 
     # Диагностика NCT-парсинга: если 0% кандидатов имеют NCT — парсер сломан (регресс).

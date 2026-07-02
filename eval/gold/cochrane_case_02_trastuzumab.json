@@ -1,6 +1,7 @@
 {
   "case_id": "cochrane_case_02_trastuzumab",
   "status": "ready",
+  "requires_fulltext": true,
   "note": "Второй Cochrane-репро (другая нозология/класс препаратов): adjuvant trastuzumab vs no-trastuzumab в HER2+ early breast cancer, overall survival. Cochrane Moja 2012 (CD006243.pub2, PMID 22513938). Pooled OS HR 0.66 (95% CI 0.57–0.77), 8 РКИ, 11,991 пациентов. Проверяет генерализацию: пайплайн должен воспроизвести Cochrane не только для BRAF+MEK меланомы, но и для другого класса препаратов (моноклональное антитело) в другой опухоли (грудь).",
   "source_review": {
     "title": "Trastuzumab containing regimens for early breast cancer",

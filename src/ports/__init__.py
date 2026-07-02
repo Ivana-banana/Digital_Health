@@ -11,7 +11,7 @@ from typing import Generic, Literal, Protocol, TypeVar
 
 from pydantic import BaseModel
 
-from src.domain.schemas import Source
+from src.domain.schemas import PICO, ScreenJudgment, Source
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -91,9 +91,34 @@ class ClassifierPort(Protocol):
 
 
 class RerankerPort(Protocol):
-    """Реранкер-приоритизатор кандидатов (модель B), plan §6.4."""
+    """Cross-encoder реранкер query×passage (модель B), plan §6.4.
 
-    async def rerank(self, query: str, sources: list[Source], *, top_n: int) -> list[Source]: ...
+    Обобщён над текстовыми пассажами (RAG-чанки и `title+abstract` кандидатов). Возвращает
+    индексы `passages` в порядке убывания релевантности, не более `top_n`.
+    """
+
+    async def rerank(self, query: str, passages: list[str], *, top_n: int) -> list[int]: ...
+
+
+class ScreeningPort(Protocol):
+    """Скрининг-классификатор include/exclude (модель C, обучается в YC), plan §7.
+
+    Порог настроен на **recall ≥ 0.95** — не терять РКИ. Работает как второе мнение поверх
+    LLM-скрининга (recall-first): используется, чтобы вернуть ошибочно исключённые РКИ.
+    Возвращает суждение на каждый источник (в порядке входа).
+    """
+
+    async def screen(self, sources: list[Source], pico: PICO) -> list[ScreenJudgment]: ...
+
+
+class FullTextPort(Protocol):
+    """Загрузка полного текста OA-статьи (Europe PMC), plan §6.4.
+
+    Возвращает тело статьи или None (нет pmcid / не Open Access) — пайплайн деградирует
+    на извлечение из абстракта.
+    """
+
+    async def fetch(self, source: Source) -> str | None: ...
 
 
 class VerifierPort(Protocol):

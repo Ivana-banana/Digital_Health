@@ -10,15 +10,18 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 
+from src.domain.fulltext import DenseEmbedder
 from src.obs.logging import StructuredLogger, get_logger
 from src.obs.ratelimit import Limiters
 from src.pipeline.config import PipelineConfig
 from src.ports import (
     ClassifierPort,
+    FullTextPort,
     LLMPort,
     QuartilePort,
     RerankerPort,
     ScientometricsPort,
+    ScreeningPort,
     SearchPort,
     VerifierPort,
 )
@@ -34,7 +37,10 @@ class Deps:
     scientometrics: ScientometricsPort | None = None
     scimago: QuartilePort | None = None
     classifier: ClassifierPort | None = None
+    screener: ScreeningPort | None = None
     reranker: RerankerPort | None = None
+    fulltext: FullTextPort | None = None
+    embedder: DenseEmbedder | None = None
     verifier: VerifierPort | None = None
     limiters: Limiters = field(default_factory=Limiters)
     cache: dict[str, object] = field(default_factory=dict)

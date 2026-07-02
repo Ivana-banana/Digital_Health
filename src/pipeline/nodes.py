@@ -18,6 +18,7 @@ from langgraph.types import interrupt
 
 from src.domain.appraisal import appraise_baseline
 from src.domain.eligibility import EligibilityCriteria, PrismaTally, screen_source
+from src.domain.fulltext import chunk_fulltext, hybrid_retrieve
 from src.domain.grade import grade_level
 from src.domain.identity import collapse_by_trial, identity_key
 from src.domain.sanitize import as_untrusted, scrub_pii
@@ -272,6 +273,10 @@ async def retrieve(state: ResearchState, deps: Deps) -> ResearchState:
 async def scientometrics(state: ResearchState, deps: Deps) -> ResearchState:
     """Узел 4: наукометрия (цитируемость/квартиль) + trust-скоринг. Влияет на порядок/GRADE."""
     candidates = state.get("candidates", [])
+    # Модель A (обучена в YC): дизайн там, где Publication Type молчит (UNKNOWN) — перед trust,
+    # т.к. дизайн питает trust-скор и appraisal (plan §7). Без порта — узел деградирует.
+    if deps.classifier is not None:
+        candidates = await deps.classifier.classify(candidates)
     if deps.scientometrics is not None:
         candidates = await deps.scientometrics.enrich(candidates)
 
@@ -353,6 +358,7 @@ async def screen(state: ResearchState, deps: Deps) -> ResearchState:
     use_llm = deps.config.enable_llm_screening and pico is not None
     # Детерминированный фильтр (ретракция/тип) — дёшево и синхронно.
     decisions = [screen_source(s, pico, criteria) for s in candidates]
+    det_include = [d.include for d in decisions]  # приемлемо по ретракции/типу (до LLM)
     # LLM-скрининг поверх прошедших — конкурентно под семафором (≈сотни кандидатов на live).
     if use_llm:
 
@@ -368,6 +374,19 @@ async def screen(state: ResearchState, deps: Deps) -> ResearchState:
         )
         for idx, decision in refined:
             decisions[idx] = decision
+    # Модель C (обучена в YC, plan §7): recall-first второе мнение. Возвращает РКИ, ошибочно
+    # исключённые LLM-скринером (det=include, но LLM=exclude), если классификатор их включает.
+    # Ретракции/несоответствие типа (det=exclude) НЕ трогает. За флагом (default off).
+    if deps.config.enable_screening_clf and deps.screener is not None and pico is not None:
+        judgments = await deps.screener.screen(candidates, pico)
+        rescued = agreement = 0
+        for i, j in enumerate(judgments):
+            if j.eligible == decisions[i].include:
+                agreement += 1
+            if det_include[i] and not decisions[i].include and j.eligible:
+                decisions[i] = ScreenDecision(source_id=decisions[i].source_id, include=True)
+                rescued += 1
+        deps.logger.event("screen_clf", rescued=rescued, agreement=agreement, n=len(candidates))
     # Trial-level collapse: множество публикаций одного РКИ → одна первичная OS-публикация
     # (plan §6.2). Проигравшие в трайл-группе → include=False, reason="duplicate".
     if deps.config.enable_trial_collapse:
@@ -395,14 +414,96 @@ async def screen(state: ResearchState, deps: Deps) -> ResearchState:
     return {"screening": decisions, "prisma": prisma, "audit": [Event(node="screen")]}
 
 
+# Full-text RAG (plan §6.4): сколько чанков достаёт гибрид и сколько уходит в prompt.
+_FT_RETRIEVE_K = 8  # кандидаты-чанки из гибрида BM25×dense
+_FT_CONTEXT_K = 3  # финальный контекст извлечения после реранкера
+
+
+def _pico_block(pico: PICO) -> str:
+    """Целевой PICO в prompt — LLM сам решает «моё сравнение или нет» (precision, plan §9)."""
+    return (
+        f"Target PICO:\n- Population: {pico.population}\n- Intervention: {pico.intervention}\n"
+        f"- Comparison: {pico.comparison}\n- Outcome: {pico.outcome}"
+    )
+
+
+async def _run_extraction(
+    deps: Deps, pico: PICO, source: Source, role: ModelRole, context: str, text_source: str
+) -> Extraction:
+    """Один вызов извлечения над данным контекстом (абстракт или full-text-выдержки)."""
+    label = (
+        "Abstract" if text_source == "abstract" else "Relevant excerpts from the study full text"
+    )
+    prompt = f"{_pico_block(pico)}\n\n{label}:\n{as_untrusted(context)}"
+    res = await deps.llm.complete(
+        [{"role": "system", "content": EXTRACT_SYS}, {"role": "user", "content": prompt}],
+        schema=Extraction,
+        model_role=role,
+    )
+    ex = res.value if isinstance(res, Ok) else Extraction(source_id=identity_key(source))
+    ex = ex.model_copy(
+        update={
+            "source_id": identity_key(source),
+            "design": source.design,
+            "outcome": ex.outcome or pico.outcome or "",
+            "text_source": text_source,
+        }
+    )
+    ex = derive_variance(ex)  # дозаполнить SE / variance_source
+    # Детерминированный последний рубеж: неправдоподобная точка (HR 0.016 и т.п.) → unavailable.
+    if not is_plausible_effect(ex):
+        ex = ex.model_copy(update={"se": None, "variance_source": "unavailable"})
+    return ex
+
+
+async def _mine_fulltext(
+    deps: Deps, pico: PICO, source: Source, role: ModelRole
+) -> Extraction | None:
+    """RAG по полному тексту OA-статьи → извлечение (plan §6.4): fetch→chunk→гибрид→реранк.
+
+    Дорогой путь: зовётся только когда абстракт дал `unavailable` (эффект часто есть в
+    Results полного текста, но не в абстракте — кейс OS-HR трастузумаба). None, если full-text
+    недоступен (нет pmcid / не OA).
+    """
+    full = await deps.fulltext.fetch(source) if deps.fulltext else None
+    if not full:
+        return None
+    chunks = chunk_fulltext(full)
+    if not chunks:
+        return None
+    query = " ".join(t for t in [pico.outcome, "hazard ratio", pico.intervention] if t)
+    top = hybrid_retrieve(chunks, query, deps.embedder, top_k=_FT_RETRIEVE_K)
+    if deps.reranker is not None and top:
+        order = await deps.reranker.rerank(query, top, top_n=_FT_CONTEXT_K)
+        top = [top[i] for i in order]
+    else:
+        top = top[:_FT_CONTEXT_K]
+    return await _run_extraction(deps, pico, source, role, "\n\n".join(top), "full_text")
+
+
+async def _prioritize_candidates(deps: Deps, pico: PICO, candidates: list[Source]) -> list[Source]:
+    """Отобрать top-N кандидатов на извлечение: реранкер B (если есть), иначе trust (plan §6.4)."""
+    cap = deps.config.max_deep_studies
+    if deps.reranker is not None and candidates:
+        query = " ".join(
+            t for t in [pico.population, pico.intervention, pico.comparison, pico.outcome] if t
+        )
+        passages = [f"{s.title}. {s.abstract or ''}" for s in candidates]
+        order = await deps.reranker.rerank(query, passages, top_n=cap)
+        return [candidates[i] for i in order]
+    return sorted(candidates, key=lambda s: s.trust_score or 0, reverse=True)[:cap]
+
+
 async def extract(state: ResearchState, deps: Deps) -> ResearchState:
-    """Узел 7: извлечение эффектов LLM'ом (честный `unavailable`+span) → конверсии дисперсии."""
+    """Узел 7: извлечение эффектов LLM'ом (честный `unavailable`+span) → конверсии дисперсии.
+
+    Приоритизация кандидатов — реранкером B (иначе trust). При `enable_fulltext_mining` эффекты,
+    отсутствующие в абстракте, добираются RAG'ом по полному тексту OA-статьи (plan §6.4).
+    """
     pico = state.get("pico") or PICO()
     included = {d.source_id for d in state.get("screening", []) if d.include}
     candidates = [s for s in state.get("candidates", []) if identity_key(s) in included]
-    # приоритизация top-N по trust (реранкер B — апгрейд за флагом, §6.4)
-    candidates = sorted(candidates, key=lambda s: s.trust_score or 0, reverse=True)
-    candidates = candidates[: deps.config.max_deep_studies]
+    candidates = await _prioritize_candidates(deps, pico, candidates)
 
     # Reasoning-эскалация (plan §5): извлечение — узкий бутылочный горлышко качества (пул),
     # тяжёлый шаг → под флагом идёт на Qwen3 235B (workhorse — Qwen3.6 35B по умолчанию).
@@ -411,34 +512,17 @@ async def extract(state: ResearchState, deps: Deps) -> ResearchState:
     )
     extractions: list[Extraction] = []
     for s in candidates:
-        # Весь PICO в prompt — LLM должен сам решать «моё сравнение или нет» (precision, plan §9).
-        prompt = (
-            f"Target PICO:\n- Population: {pico.population}\n- Intervention: {pico.intervention}\n"
-            f"- Comparison: {pico.comparison}\n- Outcome: {pico.outcome}\n\n"
-            f"Abstract:\n{as_untrusted(s.abstract or '')}"
-        )
-        res = await deps.llm.complete(
-            [{"role": "system", "content": EXTRACT_SYS}, {"role": "user", "content": prompt}],
-            schema=Extraction,
-            model_role=extract_role,
-        )
-        ex = res.value if isinstance(res, Ok) else Extraction(source_id=identity_key(s))
-        ex = ex.model_copy(
-            update={
-                "source_id": identity_key(s),
-                "design": s.design,
-                "outcome": ex.outcome or pico.outcome or "",
-                "text_source": "abstract",
-            }
-        )
-        ex = derive_variance(ex)  # дозаполнить SE / variance_source
-        # Детерминированный последний рубеж: неправдоподобная точка (HR 0.016 и т.п.) → unavailable.
-        if not is_plausible_effect(ex):
-            ex = ex.model_copy(update={"se": None, "variance_source": "unavailable"})
+        ex = await _run_extraction(deps, pico, s, extract_role, s.abstract or "", "abstract")
+        # Full-text-добор: абстракт молчит → искать эффект в полном тексте (plan §6.4).
+        if ex.variance_source == "unavailable" and deps.config.enable_fulltext_mining:
+            ft = await _mine_fulltext(deps, pico, s, extract_role)
+            if ft is not None and ft.variance_source != "unavailable":
+                ex = ft
         extractions.append(ex)
 
     n_pool = sum(1 for e in extractions if e.variance_source != "unavailable")
-    deps.logger.event("extract", n=len(extractions), poolable=n_pool)
+    n_ft = sum(1 for e in extractions if e.text_source == "full_text")
+    deps.logger.event("extract", n=len(extractions), poolable=n_pool, full_text=n_ft)
     return {"extractions": extractions, "audit": [Event(node="extract")]}
 
 

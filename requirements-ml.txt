@@ -1,0 +1,7 @@
+# ML-зависимости моделей, обучаемых в Yandex Cloud (plan §7) и full-text RAG (plan §6.4).
+# ОТДЕЛЬНО от requirements.txt: judge/CI-образ и офлайн-контракт судьи их НЕ тянут (без torch).
+# Импорты ленивые внутри адаптеров (embed/bge_m3, rerank/bge_reranker, classify/design_clf,
+# screen/biencoder_clf) — пайплайн деградирует при отсутствии этих пакетов.
+sentence-transformers>=3.0
+scikit-learn>=1.4
+joblib>=1.3

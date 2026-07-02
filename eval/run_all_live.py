@@ -26,7 +26,9 @@ GOLD_DIR = ROOT / "eval" / "gold"
 ARTIFACTS = ROOT / "eval" / "artifacts"
 
 # Список кейсов для сводки — по порядку презентации на питче.
-# Отложенный `cochrane_case_02_trastuzumab` не включаем (требует full-text mining).
+# `cochrane_case_02_trastuzumab` НЕ включён: full-text mining реализован и работает на OA-статьях,
+# но полные тексты pivotal-трайлов трастузумаба (NEJM/Lancet/JCO) не в open-access наборе Europe
+# PMC (404) → OS-HR недостижим легально. Ограничение задокументировано; отдельно `make eval-live-2`.
 CASES: list[str] = [
     "cochrane_case_01",  # BRAF+MEK меланома, OS
     "cochrane_case_03_pd1_nsclc",  # anti-PD-(L)1 NSCLC, OS
@@ -112,7 +114,7 @@ def _run_case(case_id: str) -> dict:
     print(f"\n=== {case_id} ===", flush=True)
     gold = _load_gold(case_id)
     hypothesis = gold["demo_hypothesis"]
-    deps = build_live_deps(interactive=False)
+    deps = build_live_deps(interactive=False, fulltext=bool(gold.get("requires_fulltext")))
     try:
         final = asyncio.run(run_full(hypothesis, deps))
     except Exception as exc:

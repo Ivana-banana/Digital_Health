@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<article article-type="research-article">
+  <front>
+    <article-meta>
+      <title-group><article-title>Trastuzumab in HER2-positive early breast cancer</article-title></title-group>
+      <abstract><p>Disease-free survival was improved with trastuzumab.</p></abstract>
+    </article-meta>
+  </front>
+  <body>
+    <sec>
+      <title>Methods</title>
+      <p>Patients were randomly assigned in a 1:1 ratio to receive chemotherapy with or without one year of trastuzumab. Randomization was stratified by nodal status.</p>
+    </sec>
+    <sec>
+      <title>Results</title>
+      <p>At a median follow-up of 8 years, overall survival was significantly improved with trastuzumab; the hazard ratio for death was 0.66 (95% CI 0.57 to 0.77).</p>
+      <p>Disease-free survival at 3 years was 81% versus 74% (hazard ratio 0.64).</p>
+    </sec>
+  </body>
+</article>
