@@ -20,6 +20,9 @@ from src.ports import SearchResult
 ESEARCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 EFETCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
 
+# Попытки efetch при транзиентном битом XML от NCBI (live-надёжность демо).
+_EFETCH_ATTEMPTS = 3
+
 _NCT_RE = re.compile(r"\bNCT\d{8}\b")
 # Кураторская мапа NCT → acronym: включается trial-collapse'ом; расширяется точечно.
 _ACRONYMS_PATH = Path(__file__).resolve().parents[3] / "data" / "trial_acronyms.json"
@@ -159,9 +162,19 @@ class PubMedAdapter:
             if not ids:
                 return SearchResult(sources=[], translation=translation)
 
-            await self.limiter.acquire()
-            ef = await client.post(
-                EFETCH,
-                data=self._params(id=",".join(ids), retmode="xml"),
-            )
-            return SearchResult(sources=parse_efetch_xml(ef.text), translation=translation)
+            # NCBI изредка отдаёт усечённый/не-XML ответ на efetch → ParseError. Для live-демо
+            # это фатально (падает весь кейс), поэтому ретраим efetch на транзиентном сбое парсинга.
+            last_exc: ET.ParseError | None = None
+            for _ in range(_EFETCH_ATTEMPTS):
+                await self.limiter.acquire()
+                ef = await client.post(
+                    EFETCH,
+                    data=self._params(id=",".join(ids), retmode="xml"),
+                )
+                try:
+                    sources = parse_efetch_xml(ef.text)
+                except ET.ParseError as exc:
+                    last_exc = exc
+                    continue
+                return SearchResult(sources=sources, translation=translation)
+            raise last_exc  # type: ignore[misc]  # все попытки дали битый XML — surface честно

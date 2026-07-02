@@ -1,14 +1,17 @@
 """Юнит-тесты парсеров PubMed на фикстурах (без сети)."""
 
+import asyncio
 import json
 from pathlib import Path
 
 from src.adapters.search.pubmed import (
+    PubMedAdapter,
     design_from_pub_types,
     parse_efetch_xml,
     parse_esearch,
 )
 from src.domain.schemas import StudyDesign
+from src.obs.ratelimit import RateLimiter
 
 FIX = Path(__file__).parent / "fixtures"
 
@@ -62,3 +65,50 @@ def test_parse_efetch_flags_retraction():
 def test_design_from_pub_types_priority():
     assert design_from_pub_types(["Review", "Meta-Analysis"]) == StudyDesign.META_ANALYSIS
     assert design_from_pub_types(["Journal Article"]) == StudyDesign.UNKNOWN
+
+
+class _Resp:
+    def __init__(self, *, json_data=None, text=""):
+        self._json = json_data
+        self.text = text
+
+    def json(self):
+        return self._json
+
+
+class _FakeClient:
+    """Мок httpx.AsyncClient: esearch фиксирован, efetch отдаёт тексты по очереди."""
+
+    def __init__(self, es_json, efetch_texts):
+        self._es = es_json
+        self._efetch = list(efetch_texts)
+        self.efetch_calls = 0
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def get(self, url, params=None):
+        return _Resp(json_data=self._es)
+
+    async def post(self, url, data=None):
+        text = self._efetch[self.efetch_calls]
+        self.efetch_calls += 1
+        return _Resp(text=text)
+
+
+def test_search_retries_efetch_on_transient_parse_error(monkeypatch):
+    """NCBI отдал битый XML на первом efetch → ретрай → валидный ответ (live-надёжность)."""
+    import httpx
+
+    es_json = json.loads((FIX / "esearch_sample.json").read_text(encoding="utf-8"))
+    good_xml = (FIX / "efetch_sample.xml").read_text(encoding="utf-8")
+    fake = _FakeClient(es_json, ["<PubmedArticleSet><broken", good_xml])
+    monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: fake)
+
+    adapter = PubMedAdapter(limiter=RateLimiter(1000.0))
+    result = asyncio.run(adapter.search("melanoma", limit=10))
+    assert fake.efetch_calls == 2  # первый битый → второй успешный
+    assert len(result.sources) == 2
