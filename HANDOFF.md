@@ -320,6 +320,53 @@ PATRICIA, oleclumab, ipatasertib и др.).
 Cochrane-репро (BRAF+MEK, anti-PD-(L)1) уже репрезентируют «живой автоматический мета-анализ».
 Приоритет — упаковка (деплой YC, видео, слайды, финальный тег).
 
+### YC live-деплой пройден (02.07.2026 вечер)
+
+Живой Streamlit-UI в Yandex Cloud — по требованию питча: жюри видит онлайн, отрабатывает
+на реальном PubMed + AI Studio.
+
+**Итог:**
+- **URL:** `http://89.169.141.45:8080` (VM `ai-v-massy-vm`, публичный NAT-IP).
+- **VM остановлена** после проверки для экономии. Старт перед питчем:
+  `yc compute instance start ai-v-massy-vm`. IP может смениться на NAT-auto —
+  проверить: `yc compute instance get ai-v-massy-vm --format json | jq -r
+  '.network_interfaces[0].primary_v4_address.one_to_one_nat.address'`. Для
+  стабильного IP — зарезервировать через `yc vpc address create --external-ipv4
+  zone=ru-central1-a` и привязать.
+
+**Что зафиксировано в коде:**
+- **`Dockerfile.ui`: порт 8501 → 8080** (YC-контейнеры ждут приложение на 8080; Streamlit
+  на 8501 → все запросы падали с `connection refused` в Serverless).
+- **`docker-compose.yml`: маппинг `8501:8080`** (host остаётся 8501 — `http://localhost:8501`
+  для локального демо не сломан).
+- **`README.md`** — заполнено выбранное задание (Трек 3), реальный обзор с killer-фактом.
+  Название команды остаётся плейсхолдером `[Название команды]` — заполнить перед сдачей.
+- **`DEPLOY.md`** — конкретный чеклист под наш контракт; полный `yc` CLI-скрипт деплоя
+  в Serverless Container (для reference; на практике использовали Compute VM); live-smoke
+  curl-проверки.
+
+**YC-ресурсы (в folder `b1g1itmj63behhdelake`):**
+- SA `ai-v-massy-sa` (`ajeugjlaggbg83sguuma`) — роль `container-registry.images.puller`
+  (нужна VM для pull образа).
+- Container Registry `ai-v-massy-reg` (`crpe6j3k22gc787eso61`), образы `ui:v1` (8501,
+  broken на YC), `ui:v2` (8080, рабочий).
+- VPC network `ai-v-massy-net` (`enp4hm6j3ggpqlm6lv5p`) + subnet `ai-v-massy-subnet`
+  (10.10.0.0/24, ru-central1-a). Default SG разрешает все входящие — 8080 открыт.
+- VM `ai-v-massy-vm` (2 vCPU 50% / 2GB / 20GB диск, container-solution поверх образа
+  `ui:v2`, restart-policy=Always).
+- **Удалено:** Serverless Container `bba2ce9l3k70bhr4e0cr` (не поддерживает WebSocket,
+  логи давали `Address 127.0.0.1:8080 is not available` на v1; v2 работал по health, но
+  Streamlit рендер требует WS → пришлось идти в Compute VM).
+
+**Почему не Serverless:** Streamlit fundamentally нужен persistent WebSocket
+(`/_stcore/stream`), а YC Serverless Container рвёт long-lived connections после ответа.
+Compute VM — правильный выбор для Streamlit; ~15 руб/сутки при core-fraction=50%.
+
+**Открытый вопрос перед питчем (не-код):**
+- `NCBI_API_KEY` — в коде проведён (`app/live.py:107`, `PubMedAdapter`, `.env.example`).
+  Впиши в `.env` перед стартом VM: без ключа NCBI лимит 3 rps (`ncbi_rps=9.0` в `config.py`
+  hardcoded под наличие ключа, без него — риск HTTP 429). На демо-машине это критично.
+
 ### Девятый шаг: live case 1 с новой GRADE — moderate (02.07.2026)
 
 Прогон `make eval-live` после калибровки: PASS. **Pool HR 0.68 (0.62–0.74), k=5** ≡ Cochrane

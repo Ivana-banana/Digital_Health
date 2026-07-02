@@ -196,17 +196,57 @@ AI Studio `qwen3.6-35b` ~3с).
       ограничение (полные тексты pivotal-РКИ не в OA Europe PMC → 404; код full-text проверен
       рабочим на OA-статье). `sentence-transformers` пока не установлен → full-text шёл BM25-only.
 
-12. **Следующие шаги:**
-    - **ML-достройка (полная фича «обучено в YC» вживую):** `pip install -r requirements-ml.txt`
-      (bge-m3 + реранкер → гибрид вместо BM25-only). Обучить модель A и модель C в DataSphere →
-      положить `data/models/design_clf.joblib` + `screening_clf.joblib` → **обязательный
-      live-регресс** кейсов 1/3 (модели меняют отбор/дизайн — убедиться, что 3/3 держится) +
-      отчёт метрик (крит. 9).
-    - **Full-text live-демо (опц.):** найти Cochrane-кейс с **OA** pivotal-РКИ, где OS-HR только
-      в полном тексте, — чтобы показать full-text вживую (трастузумаб не подходит: платный).
-    - **Не-код (см. HANDOFF.md «Не-код TODO»):** видео-питч 5–7 мин; сценарий демо; живой деплой UI
-      в Yandex Cloud по `DEPLOY.md` (облачные креды); NCBI API key (10 rps); слайды/нарратив;
-      проверка `.env`+сети на демо-машине; финальный тег.
+12. **Сделано в сессии 02.07.2026 вечером (YC live-деплой + рекогносцировка full-text):**
+    - **Full-text live-демо признан non-goal.** Проверено 25+ OA-кандидатов в Europe PMC:
+      Cochrane pivotal (NEJM/Lancet) в OA нет; свежие OA-РКИ (ESMO Open, Nat Med, JAMA Netw
+      Open) кладут HR primary в абстракт. Единственный «HR только в теле» паттерн —
+      subgroup/biomarker, который наш `EXTRACT_SYS` правильно отбраковывает (защита от
+      галлюцинаций). Full-text mining остаётся как проверенная возможность за флагом
+      (17/17 тестов). Приоритет — упаковка. Подробнее — HANDOFF.md.
+    - **Живой деплой в YC пройден.** Compute VM `ai-v-massy-vm` (2 vCPU 50% / 2GB /
+      20GB диск, ru-central1-a), IP **89.169.141.45:8080**, docker-container из
+      `cr.yandex/crpe6j3k22gc787eso61/ui:v2`. WebSocket работает (Streamlit требует
+      persistent connection — YC Serverless этого не даёт, поэтому Compute VM).
+    - **Порт Streamlit 8501 → 8080** (`Dockerfile.ui` + `docker-compose.yml`: маппинг
+      `8501:8080`, локальный `http://localhost:8501` не сломан). Причина: YC-контейнеры
+      ждут приложение на 8080.
+    - **YC-ресурсы:** SA `ai-v-massy-sa` (роль `container-registry.images.puller`),
+      Container Registry `ai-v-massy-reg` (ID `crpe6j3k22gc787eso61`, образ `ui:v1/v2`),
+      VPC `ai-v-massy-net` + subnet `ai-v-massy-subnet` (10.10.0.0/24, ru-central1-a),
+      VM `ai-v-massy-vm`. Unused Serverless Container удалён.
+    - **VM остановлена** после проверки (`yc compute instance stop ai-v-massy-vm`).
+      Старт перед питчем: `yc compute instance start ai-v-massy-vm`; IP может
+      смениться — `yc compute instance get ai-v-massy-vm --format json | jq -r
+      '.network_interfaces[0].primary_v4_address.one_to_one_nat.address'`. Если нужен
+      стабильный IP — зарезервировать через `yc vpc address create`.
+    - **README/DEPLOY** обновлены под live как основной режим; заполнено выбранное
+      задание (Трек 3), реальный обзор с killer-фактом. Название команды остаётся
+      плейсхолдером `[Название команды]` — заполнить перед сдачей.
+    - **NCBI API key** — уже полностью проведён в коде (`app/live.py`, `PubMedAdapter`,
+      `.env.example`). На демо: вписать `NCBI_API_KEY` в `.env`. Без ключа rate=3 rps
+      (риск HTTP 429 при пиках). `ncbi_rps=9.0` в `config.py` — hardcoded под наличие
+      ключа.
+
+13. **Следующие шаги (не-код, для сдачи 04.07):**
+    - **Название команды в `README.md:1`** — заполнить `[Название команды]`.
+    - **`NCBI_API_KEY` в `.env`** на демо-машине перед стартом VM.
+    - **Старт VM** перед питчем + проверка URL (см. §12); открыть в браузере, прогнать
+      демо-гипотезу (BRAF+MEK → HR ~0.70).
+    - **Видео-питч 5–7 мин** — живой прогон + Cochrane-репро (killer-факт: 2/2
+      воспроизведены + честный отказ).
+    - **Сценарий демо** — 2 кейса: BRAF+MEK (богатые данные, `make eval-live`) +
+      sotorasib (`make eval-insufficient`, честный отказ).
+    - **Слайды/нарратив** — «живой автоматический мета-анализ воспроизводит Cochrane,
+      0 выдуманных чисел».
+    - **Финальный тег** после сдачи.
+
+14. **Опциональное (после дедлайна или если останется буфер):**
+    - **ML-достройка (крит. 9 «обучено в YC»):** `pip install -r requirements-ml.txt`
+      (bge-m3 + реранкер → гибрид вместо BM25-only). Обучить модель A и модель C в
+      DataSphere → положить `data/models/design_clf.joblib` + `screening_clf.joblib`
+      → **обязательный live-регресс** кейсов 1/3 (модели меняют отбор/дизайн, проверить
+      3/3 держится) + отчёт метрик.
+    - **Full-text live-демо** — non-goal (см. §12); капитально не искать.
 
 **Работай в ветке `vano`, test-first, после каждого шага гоняй**
 `ruff check . && ruff format --check . && pytest`. Surgical changes — трогай только нужное.
