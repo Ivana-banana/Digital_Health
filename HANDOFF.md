@@ -230,6 +230,75 @@ k=6** vs Cochrane 0.70 (0.59–0.82) — точка и ДИ практическ
 идентичен Cochrane 0.59–0.82. Готовый **питчевый слайд** — «воспроизвели 2 из 2 Cochrane
 + честный отказ на разреженных».
 
+## P5 full-text mining (RAG §6.4) + модели A/B/C (§7) — сессия 02.07.2026
+
+Реализована полная версия (не MVP-срез) двух объявленных, но пустых способностей: full-text
+mining и обучаемые модели за портами. Всё за флагами/опциональными портами (default off/None);
+офлайн-путь, frozen-eval и контракт ИИ-судьи не затронуты. **112 → 139 тестов зелёные.**
+
+### Часть A — Full-text mining (полный конвейер RAG, plan §6.4)
+- `src/domain/fulltext.py` (чистое ядро, stdlib): `chunk_fulltext` (JATS-параграфы + overlap),
+  `bm25_scores` (Okapi BM25), `fuse_hybrid` (Reciprocal Rank Fusion), `hybrid_retrieve`
+  (BM25×dense; без эмбеддера → BM25-only). Протокол `DenseEmbedder`.
+- `src/adapters/fulltext/europepmc.py` — `FullTextPort`: чистый `parse_fulltext_xml` (JATS
+  `<body>`, на фикстуре `tests/fixtures/europepmc_fulltext.xml`) + live `EuropePmcAdapter.fetch`
+  (`GET .../rest/{PMCID}/fullTextXML` под RateLimiter; нет pmcid/не-OA/404 → None).
+- `src/adapters/embed/bge_m3.py` — `BGEM3Embedder` (dense bge-m3, ленивый импорт
+  sentence-transformers).
+- `src/adapters/rerank/bge_reranker.py` — `BGEReranker` (cross-encoder bge-reranker-v2-m3).
+  **`RerankerPort` переопределён** на passage-ориентированный (возврат ранжированных индексов) —
+  переиспользуется и для RAG-чанков, и для приоритизации кандидатов.
+- `extract()` (`src/pipeline/nodes.py`): приоритизация кандидатов реранкером (иначе trust) +
+  **full-text-добор** — когда абстракт дал `unavailable`, эффект ищется в полном тексте
+  (`fetch→chunk→hybrid_retrieve→rerank→prompt`), `text_source="full_text"` (корректно снимает
+  abstract-only-понижение GRADE). `Deps` +`fulltext`, +`embedder`.
+- `build_live_deps(*, fulltext=False)` собирает EuropePMC + bge-m3/реранкер (если установлен
+  `sentence-transformers`, иначе BM25-only). `run_cochrane`/`run_all_live` читают поле
+  `requires_fulltext` из gold. Тесты: `test_fulltext`, `test_europepmc`, `test_embed`,
+  `test_rerank`, +3 в `test_nodes_extract`.
+
+### Часть B — модели A/B/C за портами (обучение в YC, plan §7)
+- **Модель A** — `src/adapters/classify/design_clf.py` (`ClassifierPort`, e5-small + LR
+  `design_clf.joblib`). Заполняет `design` **только где `UNKNOWN`** (не перезаписывает RCT-метки
+  → безопасно для зелёных кейсов). Проведена в узел `scientometrics` перед trust.
+- **Модель B** — реранкер (та же реализация, что в A4). Двойное применение: RAG-чанки +
+  приоритизация кандидатов.
+- **Модель C** — `src/adapters/screen/biencoder_clf.py` (`ScreeningPort`, bi-encoder + LR,
+  `predict_proba` + низкий порог → recall≥0.95). Проведена в `screen()` под `enable_screening_clf`
+  как **recall-first второе мнение**: возвращает РКИ, ошибочно исключённые LLM; ретракции/тип
+  не трогает. `Deps` +`screener`.
+- Все три **gated чекпойнтом** в `build_live_deps` (`data/models/*.joblib`): нет чекпойнта /
+  нет ML-зависимостей → порт None → узел деградирует (офлайн/CI/судья целы). ML-зависимости —
+  в `requirements-ml.txt` (ленивые импорты, judge/CI-образ без torch).
+- Ноутбуки-артефакты: `training/design_clf_min.ipynb` (обновлён, hold-out), `screening_clf.ipynb`,
+  `reranker_ft.ipynb` (nDCG@10). Обучение — позже в DataSphere; код готов принять чекпойнты.
+  Тесты: `test_design_clf`, `test_screening_clf`.
+
+### Live-надёжность: ретрай PubMed efetch
+- `PubMedAdapter.search` ретраит efetch (до 3 раз) при транзиентном `ParseError` (NCBI изредка
+  отдаёт битый/усечённый XML → раньше падал весь кейс). Тест с мок-httpx. Критично для
+  живого демо на питче.
+
+### Live-верификация (на этой машине, `.env` + сеть; `sentence-transformers` НЕ установлен →
+full-text шёл BM25-only)
+- **`make eval-live-all` → 3/3 PASS:** BRAF+MEK HR 0.71 (0.64–0.80) recall 3/3; anti-PD-(L)1
+  HR 0.72 (0.61–0.84) recall 4/4; sotorasib Infeasible (честный отказ). Killer-слайд устоял
+  после всех правок A/B.
+- **Трастузумаб (`make eval-live-2`) — задокументированное ограничение, НЕ баг:** retrieve/screen/
+  extract находят все 4 gold-трайла, но full-text-добор пуст (`full_text=0`). Диагностика:
+  Europe PMC отдаёт **404 на все pivotal-трайлы** (HERA/NSABP B-31/N9831/BCIRG 006, NEJM/Lancet/
+  JCO 2005–2017 — не в OA-наборе). URL/парсер адаптера **корректны** (проверено на реально-OA
+  `PMC13222578` → 200, 34KB, чанки, ретрив работают). OS-HR этих трайлов недостижим легально
+  (Unpaywall не поможет). Кейс убран из `eval-live-all`, оставлен как limitation + `eval-live-2`.
+
+### Открытые ветки (после обучения моделей)
+- Установить `pip install -r requirements-ml.txt` → полный гибрид bge-m3+реранкер (не только BM25).
+- Обучить A/C в DataSphere → `data/models/design_clf.joblib`, `screening_clf.joblib` →
+  **обязательный live-регресс** кейсов 1/3 (модели меняют отбор/дизайн — проверить отсутствие
+  регресса) + отчёт метрик (крит. 9).
+- Full-text live-демо: нужен Cochrane-кейс с **OA** pivotal-РКИ, где OS-HR только в полном тексте
+  (трастузумаб не подходит — платный).
+
 ### Девятый шаг: live case 1 с новой GRADE — moderate (02.07.2026)
 
 Прогон `make eval-live` после калибровки: PASS. **Pool HR 0.68 (0.62–0.74), k=5** ≡ Cochrane

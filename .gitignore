@@ -16,6 +16,10 @@ env/
 .env.*
 !.env.example
 
+# Локальные инструменты/заметки агента (не часть деливерабла)
+.claude/
+session/
+
 # Данные: большие артефакты не коммитим (см. data/README.md); .gitkeep сохраняем
 data/raw/*
 data/processed/*

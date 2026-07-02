@@ -178,12 +178,35 @@ AI Studio `qwen3.6-35b` ~3с).
      - sotorasib insufficient: Infeasible (честный отказ).
      Готовый **питчевый слайд**: «2/2 Cochrane воспроизведены + честный отказ».
 
-11. **Следующие шаги:**
-    - **Не-код (см. HANDOFF.md «Не-код TODO»):** видео-питч 5–7 мин; сценарий демо (2 кейса
-      готовы); живой деплой UI в Yandex Cloud по `DEPLOY.md` (нужны облачные креды); NCBI API key
-      (10 rps); слайды/нарратив; проверка `.env`+сети на демо-машине; финальный тег.
-    - **Позже (если время):** больше Cochrane-кейсов; калибровка GRADE; reasoning-эскалация на
-      Qwen3 235B; расширение `data/trial_acronyms.json` под новые gold-кейсы.
+11. **Сделано в сессии 02.07.2026 (P5 full-text mining + модели A/B/C, 112 → 139 тестов):**
+    Реализована полная версия (не MVP) двух пустых способностей — full-text RAG (§6.4) и
+    обучаемые модели за портами (§7). Детали — HANDOFF.md «P5 full-text mining + модели A/B/C».
+    - **Часть A — full-text mining:** `domain/fulltext.py` (чанкинг + BM25 + RRF + hybrid_retrieve),
+      `adapters/fulltext/europepmc.py` (`FullTextPort`), `adapters/embed/bge_m3.py`,
+      `adapters/rerank/bge_reranker.py` (`RerankerPort` переопределён на passage→индексы).
+      `extract()`: приоритизация реранкером + full-text-добор при `unavailable`-абстракте
+      (`text_source="full_text"`). Всё за `enable_fulltext_mining` (default off).
+    - **Часть B — модели A/B/C:** дизайн-классификатор (`ClassifierPort`, заполняет только
+      `UNKNOWN`), реранкер (B), скрининг (`ScreeningPort`, recall-first второе мнение в `screen()`
+      под `enable_screening_clf`). Gated чекпойнтом `data/models/*.joblib` в `build_live_deps`;
+      `requirements-ml.txt` (ленивый torch, judge/CI лёгкие). Ноутбуки в `training/`.
+    - **Live-надёжность:** `PubMedAdapter.search` ретраит efetch на транзиентном `ParseError`.
+    - **Live-верификация:** `make eval-live-all` → **3/3 PASS** (BRAF+MEK 0.71/3-of-3;
+      anti-PD-(L)1 0.72/4-of-4; sotorasib Infeasible). Трастузумаб — задокументированное
+      ограничение (полные тексты pivotal-РКИ не в OA Europe PMC → 404; код full-text проверен
+      рабочим на OA-статье). `sentence-transformers` пока не установлен → full-text шёл BM25-only.
+
+12. **Следующие шаги:**
+    - **ML-достройка (полная фича «обучено в YC» вживую):** `pip install -r requirements-ml.txt`
+      (bge-m3 + реранкер → гибрид вместо BM25-only). Обучить модель A и модель C в DataSphere →
+      положить `data/models/design_clf.joblib` + `screening_clf.joblib` → **обязательный
+      live-регресс** кейсов 1/3 (модели меняют отбор/дизайн — убедиться, что 3/3 держится) +
+      отчёт метрик (крит. 9).
+    - **Full-text live-демо (опц.):** найти Cochrane-кейс с **OA** pivotal-РКИ, где OS-HR только
+      в полном тексте, — чтобы показать full-text вживую (трастузумаб не подходит: платный).
+    - **Не-код (см. HANDOFF.md «Не-код TODO»):** видео-питч 5–7 мин; сценарий демо; живой деплой UI
+      в Yandex Cloud по `DEPLOY.md` (облачные креды); NCBI API key (10 rps); слайды/нарратив;
+      проверка `.env`+сети на демо-машине; финальный тег.
 
 **Работай в ветке `vano`, test-first, после каждого шага гоняй**
 `ruff check . && ruff format --check . && pytest`. Surgical changes — трогай только нужное.
