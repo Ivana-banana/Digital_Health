@@ -296,8 +296,29 @@ full-text шёл BM25-only)
 - Обучить A/C в DataSphere → `data/models/design_clf.joblib`, `screening_clf.joblib` →
   **обязательный live-регресс** кейсов 1/3 (модели меняют отбор/дизайн — проверить отсутствие
   регресса) + отчёт метрик (крит. 9).
-- Full-text live-демо: нужен Cochrane-кейс с **OA** pivotal-РКИ, где OS-HR только в полном тексте
-  (трастузумаб не подходит — платный).
+- ~~Full-text live-демо~~ — **признан non-goal** (см. ниже).
+
+### Full-text live-демо — рекогносцировка 02.07.2026 (вывод: non-goal)
+Задача: найти живой OA-кейс, где абстракт молчит по HR, а тело содержит HR (аналог
+трастузумаб-фикстуры вживую). Проверено 25+ кандидатов в Europe PMC (ADAURA, KEYNOTE-522/024/189,
+IMbrave150, ETER701, RATIONALE-301/304/307, CAPO-ESCC, DESTINY-Breast03 update, CHOICE-01,
+PATRICIA, oleclumab, ipatasertib и др.).
+
+**Ключевой вывод:**
+- **Все классические Cochrane pivotal-РКИ (NEJM/Lancet) в Europe PMC отдают `isOpenAccess=N`** —
+  full-text недоступен легально.
+- **Свежие OA-РКИ (ESMO Open, Signal Transduct Target Ther, JAMA Netw Open, Nat Med)
+  выкладывают HR primary comparison в абстракт** — редакции требуют. Ни одного встреченного
+  ITT arm-vs-arm HR только в теле.
+- OA-статьи с HR в теле — это **subgroup/biomarker/multivariable** анализы (пример PATRICIA:
+  HR 0.48 для luminal PAM50-подгруппы), которые наш `EXTRACT_SYS` **правильно отбраковывает**
+  (`variance_source=unavailable`) — защита от галлюцинаций.
+
+**Решение:** full-text mining остаётся как **проверенная возможность за флагом**
+(`enable_fulltext_mining=False` default), покрыт 17/17 тестами на трастузумаб-фикстуре
+(`test_extract_mines_fulltext_when_abstract_unavailable`). **Live-демо не строим** — 2/2
+Cochrane-репро (BRAF+MEK, anti-PD-(L)1) уже репрезентируют «живой автоматический мета-анализ».
+Приоритет — упаковка (деплой YC, видео, слайды, финальный тег).
 
 ### Девятый шаг: live case 1 с новой GRADE — moderate (02.07.2026)
 
