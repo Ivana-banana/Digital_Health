@@ -240,12 +240,17 @@ AI Studio `qwen3.6-35b` ~3с).
       0 выдуманных чисел».
     - **Финальный тег** после сдачи.
 
-14. **Опциональное (после дедлайна или если останется буфер):**
-    - **ML-достройка (крит. 9 «обучено в YC»):** `pip install -r requirements-ml.txt`
-      (bge-m3 + реранкер → гибрид вместо BM25-only). Обучить модель A и модель C в
-      DataSphere → положить `data/models/design_clf.joblib` + `screening_clf.joblib`
-      → **обязательный live-регресс** кейсов 1/3 (модели меняют отбор/дизайн, проверить
-      3/3 держится) + отчёт метрик.
+14. **Модели A/C обучены на РЕАЛЬНЫХ данных (сессия 04.07.2026) — см. HANDOFF §«Сессия
+    04.07.2026»:**
+    - **Модель A (дизайн)** — обучена на PubMed (метки = `PublicationType` NLM, 980 строк),
+      honest hold-out **macro-F1 0.79**, чекпойнт `data/models/design_clf.joblib`,
+      **включена в live, регресс 3/3 держится**. Данные: `training/build_design_dataset.py`.
+    - **Модель C (скрининг)** — обучена на CLEF eHealth TAR 2019 (1655 строк ручной разметки),
+      honest hold-out **recall(include) 0.94**, чекпойнт `data/models/screening_clf.joblib`.
+      **ВЫКЛЮЧЕНА в live по умолчанию** (`ENABLE_SCREENING_CLF=1` — эксперимент): over-rescue
+      ломает killer 3/3→1/3 (bi-encoder слабо кондиционируется на PICO). Оставлена как измеренный
+      артефакт (крит. 9). Данные: `training/build_screening_dataset.py`.
+    - **Live-регресс: `python -m eval.run_all_live` → 3/3 PASS** (A вкл./C выкл.).
     - **Full-text live-демо** — non-goal (см. §12); капитально не искать.
 
 **Работай в ветке `vano`, test-first, после каждого шага гоняй**

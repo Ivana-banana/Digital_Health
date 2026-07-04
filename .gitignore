@@ -29,6 +29,10 @@ data/processed/*
 *.ckpt
 *.safetensors
 *.onnx
+# Канон чекпойнтов A/C — data/models/*.joblib (коммитим); дубликаты-выхлопы обучения — нет
+/training/*.joblib
+/design_clf.joblib
+/screening_clf.joblib
 
 # Артефакты прогона (forest/funnel-плоты мета-анализа)
 artifacts/

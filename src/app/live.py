@@ -73,7 +73,10 @@ def _build_screener() -> ScreeningPort | None:
         return None
     from src.adapters.screen.biencoder_clf import BiEncoderScreener
 
-    return BiEncoderScreener(checkpoint=_SCREENING_CLF_PATH)
+    # threshold=0.4: honest recall-first operating point на hold-out CLEF-TAR (recall(include)
+    # 0.99 при отсечении ~25% — калибровка balanced-LR). Дефолт адаптера 0.3 для balanced-модели
+    # слишком мягкий (включает почти всё). См. training/build_screening_dataset.py.
+    return BiEncoderScreener(checkpoint=_SCREENING_CLF_PATH, threshold=0.4)
 
 
 def build_live_deps(
@@ -93,7 +96,12 @@ def build_live_deps(
     from dotenv import load_dotenv
 
     load_dotenv()
-    screener = _build_screener()
+    # Модель C обучена на реальных CLEF-TAR данных (recall(include) 0.94 hold-out), НО в live-
+    # скрининге over-rescue'ит: bi-encoder+LR слабо кондиционируется на конкретный PICO →
+    # включает почти любую онко-РКИ независимо от вопроса (замер: rescued 180/195, killer-регресс
+    # 3/3 → 1/3). Оставлена как ИЗМЕРЕННЫЙ артефакт (крит. 9), в killer-пути выключена.
+    # Экспериментально включить: ENABLE_SCREENING_CLF=1.
+    screener = _build_screener() if os.environ.get("ENABLE_SCREENING_CLF") == "1" else None
     config = PipelineConfig(
         plots_dir=plots_dir or str(ROOT / "artifacts"),
         interactive=interactive,

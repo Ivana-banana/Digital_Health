@@ -103,17 +103,30 @@ def train_design(encoder: SentenceTransformer) -> None:
 
 
 def train_screening(encoder: SentenceTransformer) -> None:
-    """Модель C: пара `query [SEP] doc` через e5-small + LR, recall-first порог."""
+    """Модель C: пара `query [SEP] doc` через e5-small + LR, recall-first порог.
+
+    class_weight='balanced' — данные скрининга сильно несбалансированы (~1 include на 3-70
+    exclude). Метрика — на hold-out (крит. 9), не train=test.
+    """
     rows = _load_screen()
     texts = [q + SEP + doc for q, doc, _ in rows]
     labels = [y for _, _, y in rows]
     x = encoder.encode(texts, normalize_embeddings=True)
-    clf = LogisticRegression(max_iter=1000).fit(x, labels)
-    col = list(clf.classes_).index("include")
-    proba = clf.predict_proba(x)[:, col]
-    pred = ["include" if p >= SCREEN_THRESHOLD else "exclude" for p in proba]
-    print("recall(include):", recall_score(labels, pred, pos_label="include"))
-    print(classification_report(labels, pred))
+    try:  # честная recall-first метрика на hold-out, если хватает данных
+        x_tr, x_te, y_tr, y_te = train_test_split(
+            x, labels, test_size=0.25, random_state=0, stratify=labels
+        )
+        holdout = LogisticRegression(max_iter=1000, class_weight="balanced").fit(x_tr, y_tr)
+        col = list(holdout.classes_).index("include")
+        proba = holdout.predict_proba(x_te)[:, col]
+        pred = ["include" if p >= SCREEN_THRESHOLD else "exclude" for p in proba]
+        rec = recall_score(y_te, pred, pos_label="include")
+        print(f"[C] hold-out recall(include)@{SCREEN_THRESHOLD}: {rec}")
+        print(classification_report(y_te, pred))
+    except ValueError as exc:
+        print(f"[C] hold-out пропущен ({exc}) — слишком мало данных на класс")
+    # финальный чекпойнт — на всех данных
+    clf = LogisticRegression(max_iter=1000, class_weight="balanced").fit(x, labels)
     joblib.dump(clf, "screening_clf.joblib")
     print("[C] сохранён screening_clf.joblib")
 
