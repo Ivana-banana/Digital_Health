@@ -97,6 +97,39 @@ def test_infeasible_meta_uses_deterministic_message_without_llm_call():
     out = asyncio.run(synthesize(state, Deps(llm=llm)))
     # При невозможной мете LLM не зовётся вовсе — нечего заземлять, нечего выдумывать.
     assert llm.calls == []
-    assert out["report"].summary == "Доказательств недостаточно для вывода."
+    assert out["report"].summary.startswith("Доказательств недостаточно для вывода.")
+    assert "извлекаемой дисперсией" in out["report"].summary  # причина из Infeasible.reason
     assert out["report"].strength == "insufficient"
     assert out["report"].direction is None
+
+
+def test_infeasible_with_single_study_explains_not_pooled_without_llm():
+    """Одно пулируемое исследование, но пул невозможен (<2 совместимых): не выдаём HR за вывод."""
+    llm = _CapturingLLM()
+    state = {
+        "screening": [ScreenDecision(source_id="pmid:1", include=True)],
+        "candidates": [Source(pmid="1", title="Trial", design=StudyDesign.RCT)],
+        "extractions": [
+            Extraction(
+                source_id="pmid:1",
+                effect_type="HR",
+                point=0.42,
+                se=0.12,
+                variance_source="reported_ci",
+                outcome="overall survival",
+            )
+        ],
+        "meta": Infeasible(
+            reason="Меньше 2 совместимых по мере исследований (нельзя смешивать HR/OR/RR)."
+        ),
+    }
+    out = asyncio.run(synthesize(state, Deps(llm=llm)))
+    summary = out["report"].summary
+    # LLM не зовём; резюме объясняет, ПОЧЕМУ пула нет и что это данные одного исследования,
+    # а не голое HR рядом с «недостаточно».
+    assert llm.calls == []
+    assert "не выполнен" in summary
+    assert "не объединялись" in summary
+    assert "совместимых" in summary  # причина из Infeasible.reason
+    assert out["report"].direction is None
+    assert out["report"].strength == "insufficient"

@@ -27,7 +27,7 @@ from src.app.interactive import (  # noqa: E402
     pending_interrupt,
 )
 from src.app.live import build_live_deps  # noqa: E402
-from src.app.main import DEMO_HYPOTHESIS, build_demo_deps  # noqa: E402
+from src.app.main import build_demo_deps  # noqa: E402
 from src.app.view import (  # noqa: E402
     PICO_FIELDS,
     build_view,
@@ -40,6 +40,14 @@ from src.app.view import (  # noqa: E402
 
 # Внутри пайплайн — EN; интерфейс врача и отчёт — RU (plan §6.1).
 DISCLAIMER = "Не является клинической рекомендацией; решение — за врачом."
+
+# Гипотеза главного экрана для ЖИВОГО демо: BRAF+MEK надёжно пулит ≥2 РКИ (HR 0.70 ≡ Cochrane).
+# Отделена от DEMO_HYPOTHESIS (оффлайн-контракт судьи, завязан на замороженный корпус).
+LIVE_DEMO_HYPOTHESIS = (
+    "У пациентов с BRAF V600-мутантной метастатической меланомой комбинация "
+    "BRAF-ингибитора и MEK-ингибитора улучшает общую выживаемость по сравнению "
+    "с монотерапией BRAF-ингибитором."
+)
 
 
 async def _advance(graph, cfg, command) -> list[str]:
@@ -228,7 +236,7 @@ def main() -> None:
         help="Живой режим требует заполненный .env (ключи AI Studio). Офлайн — без ключей.",
     )
     live = mode.startswith("Живые")
-    hypothesis = st.text_area("Гипотеза врача", value=DEMO_HYPOTHESIS, height=80)
+    hypothesis = st.text_area("Гипотеза врача", value=LIVE_DEMO_HYPOTHESIS, height=80)
     if st.button("Запустить анализ", type="primary"):
         try:
             _start(hypothesis, live)

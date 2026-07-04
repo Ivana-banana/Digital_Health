@@ -27,6 +27,7 @@ from src.domain.schemas import (
     Claim,
     Event,
     Extraction,
+    Infeasible,
     MetaResult,
     PrismaCounts,
     Query,
@@ -675,7 +676,18 @@ async def synthesize(state: ResearchState, deps: Deps) -> ResearchState:
     else:
         # Нет пула — нечего заземлять, LLM не зовём (иначе он выдумает вывод из воздуха).
         direction, strength, confidence = None, "insufficient", "very_low"
-        summary = "Доказательств недостаточно для вывода."
+        reason = meta_res.reason if isinstance(meta_res, Infeasible) else ""
+        singles = poolable(state.get("extractions", []))
+        if singles:
+            # Есть данные отдельных исследований, но пул невозможен — не выдаём HR за вывод:
+            # объясняем причину и явно помечаем, что это не мета-анализ (иначе отчёт противоречив).
+            summary = (
+                f"Мета-анализ не выполнен: {reason} Приведены данные отдельных "
+                f"исследований ({len(singles)}) — они не объединялись в пул "
+                "и не образуют общий вывод."
+            )
+        else:
+            summary = ("Доказательств недостаточно для вывода. " + reason).strip()
 
     report = Report(
         summary=summary,
