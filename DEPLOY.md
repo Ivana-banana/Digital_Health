@@ -55,8 +55,17 @@ docker compose up ui            # → http://localhost:8501
 
 ## Деплой в Yandex Cloud (генерация по AI Studio API — GPU не нужен)
 
+**🟢 Развёрнуто (Compute VM):** http://89.169.147.169:8501 — health `/_stcore/health` → 200.
+Инстанс `ai-v-massy-ui`, зона `ru-central1-a`, 2 vCPU / 4 GB, Ubuntu 22.04, публичный IP.
+Как поднято: `yc compute instance create` → на VM `curl -fsSL https://get.docker.com | sudo sh`
+→ доставка кода `git archive | scp` → `.env` со секретами → `docker compose up -d --build ui`
+(порт 8501 наружу, 8080 внутри). Порт 8501 в дефолтной security-group открыт.
+
 UI — это обычный веб-сервис; инференс идёт по AI Studio OpenAI-совместимому API,
-поэтому GPU для демо не требуется (plan §12). Любой из путей:
+поэтому GPU для демо не требуется (plan §12).
+
+> **Важно:** Streamlit держит постоянный WebSocket (`/_stcore/stream`), поэтому рабочий
+> путь — **Compute VM**, а не Serverless Container. Варианты ниже:
 
 - **Serverless Container:** собрать образ `Dockerfile.ui`, запушить в Container Registry,
   создать контейнер (порт `8501`), выдать публичный endpoint.

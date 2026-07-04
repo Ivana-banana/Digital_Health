@@ -31,6 +31,10 @@ BRAF+MEK vs BRAF-моно (HR 0.70) и anti-PD-(L)1 vs docetaxel в 2L NSCLC (HR
 
 ## Запуск и проверка
 
+**🟢 Живое демо (развёрнуто в Yandex Cloud):** http://89.169.147.169:8501 — открой,
+включи переключатель «Живые данные», введи гипотезу BRAF+MEK → отчёт воспроизводит
+Cochrane HR ~0.70.
+
 Воспроизводимое развёртывание для агента-оценщика — в [DEPLOY.md](DEPLOY.md).
 
 **Основной режим — ОНЛАЙН (главная фича).** Живой прогон тянет реальный PubMed + реальный
@@ -70,7 +74,8 @@ make install                         # рантайм + dev-зависимост
 make ci                              # ruff + формат + pytest + frozen-eval
 ```
 
-Деплой UI в Yandex Cloud (генерация по AI Studio API, GPU не нужен) — см. [DEPLOY.md](DEPLOY.md).
+Деплой UI в Yandex Cloud (генерация по AI Studio API, GPU не нужен) — развёрнут на
+Compute VM: **http://89.169.147.169:8501**. Команды деплоя — см. [DEPLOY.md](DEPLOY.md).
 
 ## Структура репозитория
 
