@@ -34,8 +34,7 @@ QUERIES: dict[str, str] = {
         'NOT "randomized controlled trial"[pt]'
     ),
     "case_report": (
-        f'"case reports"[pt] AND {_BASE} '
-        'NOT "randomized controlled trial"[pt] NOT review[pt]'
+        f'"case reports"[pt] AND {_BASE} NOT "randomized controlled trial"[pt] NOT review[pt]'
     ),
     "observational": (
         '("observational study"[pt] OR "cohort studies"[mesh] OR "case-control studies"[mesh]) '
