@@ -74,7 +74,14 @@ def parse_efetch_xml(xml: str) -> list[Source]:
         article = cit.find("Article")
         title = _text(article.find("ArticleTitle")) if article is not None else None
 
-        abstract_parts = [t.text for t in art.findall(".//Abstract/AbstractText") if t.text]
+        # itertext(), не .text: структурированные абстракты содержат inline-разметку
+        # (`mg/m<sup>2</sup>`, `<i>`) — .text обрывает текст на первом дочернем теге и теряет
+        # всё после (в т.ч. секцию Results с OS-HR). См. tests/test_pubmed.py.
+        abstract_parts = [
+            txt
+            for t in art.findall(".//Abstract/AbstractText")
+            if (txt := "".join(t.itertext()).strip())
+        ]
         abstract = " ".join(abstract_parts) or None
 
         journal = _text(art.find(".//Journal/Title"))

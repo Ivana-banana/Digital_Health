@@ -55,6 +55,25 @@ def test_parse_efetch_nct_fallback_from_abstract():
     assert b.trial_acronym is None  # неизвестен курованной мапе — ок
 
 
+def test_parse_efetch_abstract_keeps_text_after_inline_markup():
+    """Inline-разметка (`mg/m<sup>2</sup>`, `<i>`) не должна обрывать абстракт.
+
+    Регресс: `.text` берёт текст только до первого дочернего тега → терялась вся секция
+    Results после `mg/m²` (реальный кейс CheckMate 037: OS-HR был недостижим).
+    """
+    xml = (
+        "<PubmedArticleSet><PubmedArticle><MedlineCitation><PMID>1</PMID>"
+        "<Article><ArticleTitle>T</ArticleTitle><Abstract><AbstractText>"
+        "Randomly assigned to dacarbazine 1,000 mg/m<sup>2</sup> or nivolumab. "
+        "Overall survival hazard ratio 0.95 (95% CI 0.79-1.15)."
+        "</AbstractText></Abstract></Article></MedlineCitation></PubmedArticle>"
+        "</PubmedArticleSet>"
+    )
+    abstract = parse_efetch_xml(xml)[0].abstract or ""
+    assert "mg/m2" in abstract  # текст внутри/после <sup> сохранён
+    assert "hazard ratio 0.95" in abstract  # секция после разметки не потеряна
+
+
 def test_parse_efetch_flags_retraction():
     xml = (FIX / "efetch_sample.xml").read_text(encoding="utf-8")
     b = parse_efetch_xml(xml)[1]
