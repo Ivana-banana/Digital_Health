@@ -48,6 +48,24 @@ def test_single_study_infeasible():
     assert isinstance(res, Infeasible)
 
 
+def test_random_pool_rejects_uninformative_wide_ci():
+    """k=2 с разнонаправленными оценками → HKSJ раздувает ДИ до неинформативного.
+
+    Реальный кейс §15: меланома CheckMate 066 (0.42) + 037 (0.95) → HR 0.65, ДИ ~0.0–114.
+    Такой пул не подаётся как вывод — честный Infeasible (политика очень малого k).
+    """
+    res = random_effects_pool([_hr(0.42, 0.25, 0.73, "a"), _hr(0.95, 0.73, 1.24, "b")])
+    assert isinstance(res, Infeasible)
+
+
+def test_random_pool_keeps_informative_small_pool():
+    """Согласованный k=2 с узким ДИ (как офлайн-демо) остаётся валидным пулом —
+    гардрейл неинформативности не должен срабатывать на нормальных малых пулах."""
+    res = random_effects_pool([_hr(0.58, 0.44, 0.77, "a"), _hr(0.63, 0.50, 0.80, "b")])
+    assert isinstance(res, MetaResult)
+    assert res.pooled_ci_high / res.pooled_ci_low < 16
+
+
 def test_incompatible_measures_not_mixed():
     hr = _hr(0.58, 0.44, 0.77)
     or_ = derive_variance(
@@ -81,8 +99,12 @@ def test_random_effects_hksj_wider_than_fixed():
 
 
 def test_random_effects_heterogeneous_tau_positive():
-    """Разнонаправленные оценки → τ²>0 и I² высокий (DerSimonian–Laird)."""
-    re = random_effects_pool([_hr(0.50, 0.40, 0.62), _hr(1.30, 1.05, 1.61)])
+    """Разнонаправленные оценки → τ²>0 и I² высокий (DerSimonian–Laird).
+
+    k=3: при k=2 высокая гетерогенность делает ДИ неинформативным (гардрейл §15 → Infeasible);
+    здесь проверяется сама математика τ²/I² на пуле с ещё осмысленным ДИ.
+    """
+    re = random_effects_pool([_hr(0.55, 0.45, 0.67), _hr(0.75, 0.62, 0.91), _hr(1.00, 0.82, 1.22)])
     assert isinstance(re, MetaResult)
     assert re.tau_squared and re.tau_squared > 0
     assert re.i_squared and re.i_squared > 50

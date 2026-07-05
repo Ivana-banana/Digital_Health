@@ -13,6 +13,11 @@ from src.domain.schemas import Appraisal, Extraction, Infeasible, MetaResult
 from src.stats.distributions import t_quantile, t_two_sided_p
 from src.stats.effect_conversions import Z95, is_log_scale
 
+# Порог неинформативности пула: 95% ДИ шире 16-кратного разброса (напр. HR 0.25–4.0)
+# не несёт направленного вывода. При очень малом k (2–3) HKSJ с t(df=1)=12.7 легко раздувает
+# ДИ до бессмысленного, если исследования расходятся — такой пул честнее не подавать (§15).
+_UNINFORMATIVE_CI_RATIO = 16.0
+
 
 def poolable(extractions: list[Extraction]) -> list[Extraction]:
     """Исследования с извлекаемой дисперсией (point + положительный SE)."""
@@ -126,6 +131,18 @@ def random_effects_pool(extractions: list[Extraction]) -> MetaResult | Infeasibl
 
     if log:
         pooled, low, high = math.exp(pooled), math.exp(low), math.exp(high)
+
+    # Гардрейл неинформативности (§15): при разбросе оценок HKSJ на малом k раздувает ДИ до
+    # бессмысленного — не подавать как вывод, честный Infeasible (как при <2 исследований).
+    if log and low > 0 and high / low > _UNINFORMATIVE_CI_RATIO:
+        return Infeasible(
+            reason=(
+                "Пул статистически неинформативен: 95% ДИ охватывает "
+                f">{_UNINFORMATIVE_CI_RATIO:g}-кратный разброс при k={len(grp)} "
+                "(высокая гетерогенность при малом числе исследований)."
+            ),
+            missing=["больше согласованных исследований (узкий ДИ)"],
+        )
 
     return MetaResult(
         effect_type=effect_type,  # type: ignore[arg-type]
